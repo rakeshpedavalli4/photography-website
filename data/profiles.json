@@ -1,0 +1,21 @@
+{
+  "profiles": [
+    {
+      "id": "emma-johnson",
+      "name": "Emma Johnson",
+      "category": "portraits",
+      "description": "Editorial and lifestyle portraits",
+      "coverImage": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=900&q=80",
+      "images": [
+        {
+          "path": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=1200&q=80",
+          "title": "Emma portrait 1"
+        },
+        {
+          "path": "https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?auto=format&fit=crop&w=1200&q=80",
+          "title": "Emma portrait 2"
+        }
+      ]
+    }
+  ]
+}

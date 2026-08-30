@@ -27,6 +27,20 @@ Important notes on image fidelity and color
 - This scaffold streams master files. If you need smaller derivatives for responsive images, create them offline using libvips (vips resize/thumbnail) and keep originals on NAS.
 - Avoid automatic on-the-fly transcoding unless you carefully preserve ICC profiles and use a high-quality library (libvips is recommended). If you later add on-the-fly conversion, configure it to embed profiles and use lossless or very high-quality settings.
 
+Google admin login (OIDC)
+The admin area is protected by Google sign-in and only allows configured emails. To enable it:
+1. Create a Google OAuth 2.0 Client ID in Google Cloud Console.
+2. Add the redirect URI:
+   http://localhost:4000/auth/google/callback
+3. Set the following env vars:
+   GOOGLE_CLIENT_ID=...
+   GOOGLE_CLIENT_SECRET=...
+   GOOGLE_CALLBACK_URL=http://localhost:4000/auth/google/callback
+   GOOGLE_ALLOWED_EMAILS=your-email@gmail.com
+   SESSION_SECRET=choose-a-long-random-string
+4. Restart the app and visit /admin.
+5. The public site remains public; only /admin and admin APIs are protected.
+
 Next steps (optional)
 - Connect to your NAS via an S3-compatible gateway (MinIO or rclone serve s3) for robust access and better tooling.
 - Add authentication and access control to the proxy (JWT/OAuth) if you need per-user private albums.

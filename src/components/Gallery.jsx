@@ -4,14 +4,14 @@ export default function Gallery({ items = [] }) {
   return (
     <div className="gallery">
       {items.map((it, idx) => {
-        // each item expected { path: 'relative/path.jpg', title: '...' }
-        const src = `/images/${it.path}`
+        const src = /^https?:\/\//.test(it.path || '') ? it.path : `/images/${it.path}`
+        const title = it.title || it.name || 'Portfolio image'
         return (
           <figure key={idx} className="photo">
             <a href={src} target="_blank" rel="noreferrer">
-              <img src={src} alt={it.title || ''} decoding="async" loading="lazy" />
+              <img src={src} alt={title} decoding="async" loading="lazy" />
             </a>
-            <figcaption>{it.title}</figcaption>
+            <figcaption>{title}</figcaption>
           </figure>
         )
       })}

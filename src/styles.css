@@ -118,7 +118,7 @@ a { color: inherit; }
 
 .hero h1 {
   margin: 0;
-  font-size: clamp(2.7rem, 6vw, 6rem);
+  font-size: clamp(2.2rem, 4.5vw, 4.2rem);
   line-height: 0.95;
   letter-spacing: -0.06em;
   font-weight: 600;
@@ -595,6 +595,10 @@ a { color: inherit; }
 
   .hero {
     padding-top: 3rem;
+  }
+
+  .hero h1 {
+    font-size: clamp(1.8rem, 9vw, 3rem);
   }
 }
 

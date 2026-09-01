@@ -49,6 +49,13 @@ Next steps (optional)
 Docs and credentials
 - Use readme.io to host detailed credential setup instructions and to store non-sensitive operational docs. Keep secrets out of public docs and source control.
 
+Netlify env safety
+- EmailJS frontend values are intentionally public and can use the `VITE_` prefix: `VITE_EMAILJS_PUBLIC_KEY`, `VITE_EMAILJS_SERVICE_ID`, and `VITE_EMAILJS_TEMPLATE_ID`.
+- Real secrets such as `GOOGLE_CLIENT_SECRET`, `NAS_PASS`, and `SESSION_SECRET` must stay server-side and must never use the `VITE_` prefix.
+- If Netlify flags the EmailJS variables as possible secrets, add this to site settings to suppress the false positive:
+  `SECRETS_SCAN_OMIT_KEYS=VITE_EMAILJS_PUBLIC_KEY,VITE_EMAILJS_SERVICE_ID,VITE_EMAILJS_TEMPLATE_ID`
+- Keep `.env` and `.env.local` out of version control; use Netlify environment variables or local-only files ignored by git.
+
 Files created
 - server/index.js: tiny Express proxy server
 - src/: Vite + React PWA frontend

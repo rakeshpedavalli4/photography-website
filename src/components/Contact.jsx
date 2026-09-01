@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
 import emailjs from '@emailjs/browser'
 
-// Initialize EmailJS with your Public Key
-const PUBLIC_KEY = 'LXxREwbDM_nW4mub7'
+// Initialize EmailJS with your public key. This is safe to expose in the browser.
+const PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || 'YOUR_PUBLIC_KEY'
 const SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID || 'YOUR_SERVICE_ID'
 const TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID || 'YOUR_TEMPLATE_ID'
 

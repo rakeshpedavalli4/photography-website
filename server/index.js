@@ -137,11 +137,21 @@ app.post('/api/auth/logout', (req, res) => {
 });
 
 if (GOOGLE_ENABLED) {
-  app.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'], prompt: 'select_account' }));
-  app.get('/auth/google/callback', passport.authenticate('google', {
-    failureRedirect: `${FRONTEND_URL}/admin?auth=failed`,
-    successRedirect: `${FRONTEND_URL}/admin`
-  }));
+  // Save an optional redirect path in the session before starting OAuth so we can
+  // return the user to the original frontend route after successful login.
+  app.get('/auth/google', (req, res, next) => {
+    req.session.redirectTo = req.query.redirect || '/admin';
+    passport.authenticate('google', { scope: ['profile', 'email'], prompt: 'select_account' })(req, res, next);
+  });
+
+  // Use passport to authenticate, then redirect to the saved path (or /admin) on success.
+  app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: `${FRONTEND_URL}/admin?auth=failed` }), (req, res) => {
+    const redirectPath = req.session.redirectTo || '/admin';
+    delete req.session.redirectTo;
+    // Ensure redirect is relative (prevent open redirect). Only allow paths starting with '/'.
+    const safePath = (typeof redirectPath === 'string' && redirectPath.startsWith('/')) ? redirectPath : '/admin';
+    res.redirect(`${FRONTEND_URL}${safePath}`);
+  });
 }
 
 app.get('/api/profiles', (req, res) => {

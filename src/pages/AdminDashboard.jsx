@@ -34,7 +34,12 @@ export default function AdminDashboard() {
         <h1>Admin access</h1>
         <p>Sign in with your Google account to manage gallery profiles.</p>
         {googleEnabled ? (
-          <a className="primary-btn" href={`${BACKEND_URL}/auth/google`}>Sign in with Google</a>
+          <a
+            className="primary-btn"
+            href={`${BACKEND_URL}/auth/google?redirect=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '/')}`}
+          >
+            Sign in with Google
+          </a>
         ) : (
           <p className="admin-error">Google OIDC is not configured yet. Set valid GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your local environment before enabling admin login.</p>
         )}

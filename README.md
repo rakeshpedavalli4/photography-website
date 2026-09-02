@@ -32,12 +32,12 @@ The admin area is protected by Google sign-in and only allows configured emails.
 1. Create a Google OAuth 2.0 Client ID in Google Cloud Console.
 2. Add the redirect URI:
    http://localhost:4000/auth/google/callback
-3. Set the following env vars:
-   GOOGLE_CLIENT_ID=...
-   GOOGLE_CLIENT_SECRET=...
+3. Set the following env vars using local-only values in `.env.local` or Netlify site settings:
+   GOOGLE_CLIENT_ID=replace-with-google-client-id
+   GOOGLE_CLIENT_SECRET=replace-with-google-client-secret
    GOOGLE_CALLBACK_URL=http://localhost:4000/auth/google/callback
-   GOOGLE_ALLOWED_EMAILS=your-email@gmail.com
-   SESSION_SECRET=choose-a-long-random-string
+   GOOGLE_ALLOWED_EMAILS=your-email@example.com
+   SESSION_SECRET=replace-with-long-random-secret
 4. Restart the app and visit /admin.
 5. The public site remains public; only /admin and admin APIs are protected.
 

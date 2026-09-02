@@ -187,23 +187,60 @@ app.post('/api/admin/profiles', (req, res) => {
   return res.json({ ok: true, profile });
 });
 
-app.post('/api/admin/upload', (req, res) => {
+const multer = require('multer');
+
+// Serve uploaded files from the /uploads folder
+app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+
+// Configure multer storage to place files under uploads/<profileId>/
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const profileId = req.params.profileId || 'misc';
+    const dest = path.join(__dirname, '..', 'uploads', profileId);
+    fs.mkdirSync(dest, { recursive: true });
+    cb(null, dest);
+  },
+  filename: (req, file, cb) => {
+    const safeName = `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`;
+    cb(null, safeName);
+  }
+});
+const upload = multer({ storage });
+
+// New upload endpoint: accepts multipart/form-data with files named 'images' and an optional 'urls' JSON field
+app.post('/api/admin/upload/:profileId', upload.array('images'), (req, res) => {
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
 
-  const { profileId, images } = req.body || {};
-  if (!profileId || !Array.isArray(images)) return res.status(400).json({ error: 'profileId and images are required' });
-
+  const profileId = req.params.profileId;
   const profiles = readProfiles();
   const profile = profiles.find((item) => item.id === profileId);
 
-  if (!profile) {
-    return res.status(404).json({ error: 'Profile not found' });
+  if (!profile) return res.status(404).json({ error: 'Profile not found' });
+
+  // Files saved on disk
+  const files = req.files || [];
+
+  // Optional typed URLs sent as a JSON string field 'urls'
+  let typedUrls = [];
+  if (req.body && req.body.urls) {
+    try {
+      typedUrls = JSON.parse(req.body.urls);
+    } catch (err) {
+      // ignore parse errors
+    }
   }
 
-  const mappedImages = images.map((imagePath) => ({
-    path: imagePath,
-    title: imagePath.split('/').pop().replace(/\.[^.]+$/, '')
+  const mappedFromFiles = files.map((f) => ({
+    path: `${FRONTEND_URL.replace(/\/$/, '')}/uploads/${encodeURIComponent(profileId)}/${encodeURIComponent(f.filename)}`,
+    title: f.originalname.replace(/\.[^.]+$/, '')
   }));
+
+  const mappedFromUrls = (Array.isArray(typedUrls) ? typedUrls : []).map((u) => ({
+    path: u,
+    title: String(u).split('/').pop().replace(/\.[^.]+$/, '')
+  }));
+
+  const mappedImages = [...mappedFromFiles, ...mappedFromUrls];
 
   profile.images = [...(profile.images || []), ...mappedImages];
   writeProfiles(profiles);

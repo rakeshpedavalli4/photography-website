@@ -189,6 +189,12 @@ app.post('/api/admin/profiles', (req, res) => {
 
 const multer = require('multer');
 
+// Simple middleware to ensure the user is authenticated via passport session
+function ensureAuthenticated(req, res, next) {
+  if (req.user) return next();
+  return res.status(401).json({ error: 'Unauthorized' });
+}
+
 // Serve uploaded files from the /uploads folder
 app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
 
@@ -208,9 +214,8 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // New upload endpoint: accepts multipart/form-data with files named 'images' and an optional 'urls' JSON field
-app.post('/api/admin/upload/:profileId', upload.array('images'), (req, res) => {
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-
+// IMPORTANT: ensureAuthenticated runs BEFORE multer so unauthenticated users cannot upload files.
+app.post('/api/admin/upload/:profileId', ensureAuthenticated, upload.array('images'), (req, res) => {
   const profileId = req.params.profileId;
   const profiles = readProfiles();
   const profile = profiles.find((item) => item.id === profileId);
@@ -230,8 +235,10 @@ app.post('/api/admin/upload/:profileId', upload.array('images'), (req, res) => {
     }
   }
 
+  // Build public URLs pointing to this backend (use request host so links resolve correctly)
+  const origin = `${req.protocol}://${req.get('host')}`
   const mappedFromFiles = files.map((f) => ({
-    path: `${FRONTEND_URL.replace(/\/$/, '')}/uploads/${encodeURIComponent(profileId)}/${encodeURIComponent(f.filename)}`,
+    path: `${origin}/uploads/${encodeURIComponent(profileId)}/${encodeURIComponent(f.filename)}`,
     title: f.originalname.replace(/\.[^.]+$/, '')
   }));
 

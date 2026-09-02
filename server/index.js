@@ -16,8 +16,12 @@ const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const fetch = require('node-fetch');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 
 const app = express();
+// If running behind a proxy (Render, Heroku, etc.) enable trust proxy so req.protocol and host are correct
+app.set('trust proxy', true);
 const PORT = process.env.PORT || 4000;
 
 const NAS_BASE = process.env.NAS_BASE_URL;
@@ -28,6 +32,7 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || 'http://localhost:4000/auth/google/callback';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
+const BACKEND_URL_ENV = process.env.BACKEND_URL || '';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'change-me';
 const ALLOWED_EMAILS = (process.env.GOOGLE_ALLOWED_EMAILS || '').split(',').map((email) => email.trim().toLowerCase()).filter(Boolean);
 
@@ -37,6 +42,11 @@ function isPlaceholder(value) {
 }
 
 const GOOGLE_ENABLED = Boolean(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET && !isPlaceholder(GOOGLE_CLIENT_ID) && !isPlaceholder(GOOGLE_CLIENT_SECRET));
+
+// Basic sanitizer to produce a filesystem-safe profile ID component
+function sanitizeProfileId(id) {
+  return String(id || '').replace(/[^A-Za-z0-9_-]/g, '').toLowerCase();
+}
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 const PROFILE_FILE = path.join(DATA_DIR, 'profiles.json');
@@ -75,7 +85,11 @@ function writeProfiles(profiles) {
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(session({ secret: SESSION_SECRET, resave: false, saveUninitialized: false, cookie: { secure: false } }));
+// Basic security headers and rate limiting
+app.use(helmet());
+app.use(rateLimit({ windowMs: 60 * 1000, max: 120 })); // limit to 120 requests per minute per IP
+
+app.use(session({ secret: SESSION_SECRET, resave: false, saveUninitialized: false, cookie: { secure: process.env.NODE_ENV === 'production', sameSite: 'lax' } }));
 app.use(passport.initialize());
 app.use(passport.session());
 
@@ -144,13 +158,15 @@ if (GOOGLE_ENABLED) {
     passport.authenticate('google', { scope: ['profile', 'email'], prompt: 'select_account' })(req, res, next);
   });
 
-  // Use passport to authenticate, then redirect to the saved path (or /admin) on success.
-  app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: `${FRONTEND_URL}/admin?auth=failed` }), (req, res) => {
-    const redirectPath = req.session.redirectTo || '/admin';
+  // Use passport to authenticate, then redirect to a success page on the frontend which will
+  // forward the user to the intended path. On failure redirect to the public home page.
+  app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: `${FRONTEND_URL}/?auth=failed` }), (req, res) => {
+    const redirectPath = req.session.redirectTo || '/admin/upload';
     delete req.session.redirectTo;
     // Ensure redirect is relative (prevent open redirect). Only allow paths starting with '/'.
-    const safePath = (typeof redirectPath === 'string' && redirectPath.startsWith('/')) ? redirectPath : '/admin';
-    res.redirect(`${FRONTEND_URL}${safePath}`);
+    const safePath = (typeof redirectPath === 'string' && redirectPath.startsWith('/')) ? redirectPath : '/admin/upload';
+    // Redirect to frontend success page with the intended path encoded
+    res.redirect(`${FRONTEND_URL.replace(/\/$/, '')}/auth/success?redirect=${encodeURIComponent(safePath)}`);
   });
 }
 
@@ -195,13 +211,34 @@ function ensureAuthenticated(req, res, next) {
   return res.status(401).json({ error: 'Unauthorized' });
 }
 
-// Serve uploaded files from the /uploads folder
-app.use('/uploads', express.static(path.join(__dirname, '..', 'uploads')));
+// Serve uploaded files from the /uploads folder only to authenticated users
+const UPLOADS_ROOT = path.join(__dirname, '..', 'uploads');
+
+app.get('/uploads/:profileId/:filename', ensureAuthenticated, (req, res) => {
+  const profileId = sanitizeProfileId(req.params.profileId || '');
+  const filename = req.params.filename || '';
+
+  // filename should be a simple name (no path separators)
+  if (!/^[a-zA-Z0-9._-]+$/.test(filename)) return res.status(400).send('Invalid filename');
+
+  const filePath = path.join(UPLOADS_ROOT, profileId, filename);
+  const resolved = path.resolve(filePath);
+  const uploadsResolved = path.resolve(UPLOADS_ROOT);
+
+  // Prevent path traversal — resolved path must be inside uploads root
+  if (!resolved.startsWith(uploadsResolved)) return res.status(400).send('Invalid path');
+  if (!fs.existsSync(resolved)) return res.status(404).send('Not found');
+
+  // Serve file with conservative caching (private)
+  res.set('Cache-Control', 'private, max-age=86400');
+  return res.sendFile(resolved);
+});
 
 // Configure multer storage to place files under uploads/<profileId>/
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const profileId = req.params.profileId || 'misc';
+    const profileIdRaw = req.params.profileId || 'misc';
+    const profileId = sanitizeProfileId(profileIdRaw) || 'misc';
     const dest = path.join(__dirname, '..', 'uploads', profileId);
     fs.mkdirSync(dest, { recursive: true });
     cb(null, dest);
@@ -211,12 +248,22 @@ const storage = multer.diskStorage({
     cb(null, safeName);
   }
 });
-const upload = multer({ storage });
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024, files: 20 }, // 10MB per file, max 20 files
+  fileFilter: (req, file, cb) => {
+    if (!file.mimetype || !file.mimetype.startsWith('image/')) {
+      return cb(new Error('Only image files are allowed'), false);
+    }
+    cb(null, true);
+  }
+});
 
 // New upload endpoint: accepts multipart/form-data with files named 'images' and an optional 'urls' JSON field
 // IMPORTANT: ensureAuthenticated runs BEFORE multer so unauthenticated users cannot upload files.
 app.post('/api/admin/upload/:profileId', ensureAuthenticated, upload.array('images'), (req, res) => {
-  const profileId = req.params.profileId;
+  const profileId = sanitizeProfileId(req.params.profileId || '');
   const profiles = readProfiles();
   const profile = profiles.find((item) => item.id === profileId);
 
@@ -235,10 +282,10 @@ app.post('/api/admin/upload/:profileId', ensureAuthenticated, upload.array('imag
     }
   }
 
-  // Build public URLs pointing to this backend (use request host so links resolve correctly)
-  const origin = `${req.protocol}://${req.get('host')}`
+  // Build public URLs pointing to this backend (prefer BACKEND_URL env when set to handle proxies/CDNs)
+  const origin = BACKEND_URL_ENV || `${req.protocol}://${req.get('host')}`;
   const mappedFromFiles = files.map((f) => ({
-    path: `${origin}/uploads/${encodeURIComponent(profileId)}/${encodeURIComponent(f.filename)}`,
+    path: `${origin.replace(/\/$/, '')}/uploads/${encodeURIComponent(sanitizeProfileId(profileId))}/${encodeURIComponent(f.filename)}`,
     title: f.originalname.replace(/\.[^.]+$/, '')
   }));
 

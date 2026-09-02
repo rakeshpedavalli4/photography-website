@@ -50,23 +50,41 @@ export default function AdminDashboard() {
   return (
     <section className="admin-page">
       <div className="admin-header">
-        <h1>Admin Dashboard</h1>
-        <button
-          className="ghost-btn"
-          onClick={() => {
-            fetch(`${BACKEND_URL}/api/auth/logout`, { method: 'POST', credentials: 'include' })
-              .then(() => window.location.href = '/')
-          }}
-        >
-          Log out
-        </button>
+        <div>
+          <h1>Admin Dashboard</h1>
+          <div className="admin-sub">Manage clients and upload photos</div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <div className="admin-user">Signed in as: <strong style={{ fontWeight: 600 }}>{user.displayName || user.email}</strong></div>
+          <button
+            className="ghost-btn"
+            onClick={() => {
+              fetch(`${BACKEND_URL}/api/auth/logout`, { method: 'POST', credentials: 'include' })
+                .then(() => window.location.href = '/')
+            }}
+          >
+            Log out
+          </button>
+        </div>
       </div>
 
-      <div className="admin-user">Signed in as: {user.displayName || user.email}</div>
-
       <div className="admin-grid">
-        <Link className="admin-card" to="/admin/profiles">Manage profiles</Link>
-        <Link className="admin-card" to="/admin/upload">Upload images</Link>
+        <Link className="admin-card" to="/admin/profiles">
+          <div className="card-content-inner">
+            <div className="card-title">Profiles</div>
+            <div className="card-desc">Create and edit client profiles, view photo counts.</div>
+          </div>
+          <div className="card-chevron">›</div>
+        </Link>
+
+        <Link className="admin-card" to="/admin/upload">
+          <div className="card-content-inner">
+            <div className="card-title">Upload</div>
+            <div className="card-desc">Drag & drop photos to add images to a client gallery.</div>
+          </div>
+          <div className="card-chevron">›</div>
+        </Link>
       </div>
     </section>
   )

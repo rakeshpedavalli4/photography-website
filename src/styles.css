@@ -746,6 +746,20 @@ a { color: inherit; }
 
 .admin-card > * { pointer-events: none; }
 
+/* Card content styles */
+.card-content-inner { text-align: left; width: 100%; }
+.card-title { font-size: 1.15rem; font-weight: 600; color: #111; }
+.card-desc { margin-top: 0.35rem; color: #6b6b6b; font-size: 0.95rem; }
+.card-chevron { font-size: 2rem; color: #c5c5c5; margin-left: 0.5rem; }
+
+/* Admin profiles overrides */
+.admin-profiles-grid { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 1rem; }
+.admin-profile-card { min-height: auto; border-radius: 12px; overflow: hidden; }
+.admin-profile-card img { height: 180px; width: 100%; object-fit: cover; display: block; }
+.admin-profile-content { padding: 1rem; }
+
+.admin-sub { color: #6b6b6b; font-size: 0.95rem; margin-top: 0.25rem; }
+
 /* Buttons (admin-specific overrides) */
 .admin-page .primary-btn {
   display: inline-block;

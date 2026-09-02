@@ -8,6 +8,7 @@ import Contact from './components/Contact'
 import AdminDashboard from './pages/AdminDashboard'
 import AdminProfiles from './pages/AdminProfiles'
 import AdminUpload from './pages/AdminUpload'
+import AuthSuccess from './pages/AuthSuccess'
 import './styles.css'
 
 function CategoryPageWrapper() {
@@ -31,6 +32,7 @@ export default function App() {
           <Route path="/admin" element={<AdminDashboard />} />
           <Route path="/admin/upload" element={<AdminUpload />} />
           <Route path="/admin/profiles" element={<AdminProfiles />} />
+          <Route path="/auth/success" element={<AuthSuccess />} />
         </Routes>
       </Layout>
     </BrowserRouter>

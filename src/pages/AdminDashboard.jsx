@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+const BACKEND_URL = 'https://backend-we97.onrender.com'
+
 export default function AdminDashboard() {
   const [user, setUser] = useState(null)
   const [googleEnabled, setGoogleEnabled] = useState(true)
@@ -8,8 +10,8 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/api/auth/config', { credentials: 'include' }).then((r) => r.json()),
-      fetch('/api/auth/user', { credentials: 'include' }).then((r) => r.json())
+      fetch(`${BACKEND_URL}/api/auth/config`, { credentials: 'include' }).then((r) => r.json()),
+      fetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' }).then((r) => r.json())
     ])
       .then(([config, userData]) => {
         setGoogleEnabled(Boolean(config.googleEnabled))
@@ -30,7 +32,7 @@ export default function AdminDashboard() {
         <h1>Admin access</h1>
         <p>Sign in with your Google account to manage gallery profiles.</p>
         {googleEnabled ? (
-          <a className="primary-btn" href="/auth/google">Sign in with Google</a>
+          <a className="primary-btn" href={`${BACKEND_URL}/auth/google`}>Sign in with Google</a>
         ) : (
           <p className="admin-error">Google OIDC is not configured yet. Set valid GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in your local environment before enabling admin login.</p>
         )}
@@ -45,7 +47,8 @@ export default function AdminDashboard() {
         <button
           className="ghost-btn"
           onClick={() => {
-            fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).then(() => window.location.href = '/')
+            fetch(`${BACKEND_URL}/api/auth/logout`, { method: 'POST', credentials: 'include' })
+              .then(() => window.location.href = '/')
           }}
         >
           Log out

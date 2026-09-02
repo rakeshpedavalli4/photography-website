@@ -1,13 +1,15 @@
 import React, { useEffect, useState } from 'react'
 
+const BACKEND_URL = 'https://backend-we97.onrender.com'
+
 export default function AdminProfiles() {
   const [profiles, setProfiles] = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetch('/api/admin/profiles', { credentials: 'include' })
+    fetch(`${BACKEND_URL}/api/admin/profiles`, { credentials: 'include' })
       .then((r) => {
-        if (r.status === 401) window.location.href = '/auth/google'
+        if (r.status === 401) window.location.href = `${BACKEND_URL}/auth/google`
         return r.json()
       })
       .then((data) => setProfiles(data))

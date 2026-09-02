@@ -1,5 +1,7 @@
 import React, { useState } from 'react'
 
+const BACKEND_URL = 'https://backend-we97.onrender.com'
+
 export default function AdminUpload() {
   const [profileId, setProfileId] = useState('emma-johnson')
   const [imageUrls, setImageUrls] = useState('')
@@ -11,7 +13,7 @@ export default function AdminUpload() {
 
     const payload = { profileId, images }
 
-    const res = await fetch('/api/admin/upload', {
+    const res = await fetch(`${BACKEND_URL}/api/admin/upload`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'include',
@@ -19,7 +21,7 @@ export default function AdminUpload() {
     })
 
     if (res.status === 401) {
-      window.location.href = '/auth/google'
+      window.location.href = `${BACKEND_URL}/auth/google`
       return
     }
 

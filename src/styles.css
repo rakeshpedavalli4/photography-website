@@ -290,6 +290,80 @@ a { color: inherit; }
   color: #fff;
 }
 
+.home-showcase {
+  margin-top: 2rem;
+}
+
+.home-showcase-heading {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.75rem;
+  color: var(--muted);
+  font-size: 0.68rem;
+  letter-spacing: 0.12rem;
+  text-transform: uppercase;
+}
+
+.home-showcase-link {
+  position: relative;
+  display: block;
+  min-height: 320px;
+  aspect-ratio: 16 / 7;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  background: var(--panel-strong);
+  color: var(--text);
+  text-decoration: none;
+}
+
+.home-showcase-link img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  animation: showcase-image-in 1.4s ease both;
+}
+
+.home-showcase-link::after {
+  position: absolute;
+  inset: 0;
+  content: '';
+  background: linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, 0.82));
+}
+
+.home-showcase-caption {
+  position: absolute;
+  z-index: 1;
+  right: 1.5rem;
+  bottom: 1.5rem;
+  left: 1.5rem;
+}
+
+.home-showcase-caption > span {
+  color: var(--accent);
+  font-size: 0.68rem;
+  letter-spacing: 0.12rem;
+  text-transform: uppercase;
+}
+
+.home-showcase-caption h2 {
+  margin: 0.5rem 0;
+  font-size: 2rem;
+  font-weight: 500;
+}
+
+.home-showcase-link:hover img {
+  transform: scale(1.015);
+  transition: transform 1.2s ease;
+}
+
+@keyframes showcase-image-in {
+  from { opacity: 0.45; }
+  to { opacity: 1; }
+}
+
 .quick-links {
   padding: 2.5rem 0 0;
   text-align: center;
@@ -1405,6 +1479,21 @@ a { color: inherit; }
 
   .hero h1 {
     font-size: clamp(1.8rem, 9vw, 3rem);
+  }
+
+  .home-showcase-link {
+    min-height: 320px;
+    aspect-ratio: 4 / 5;
+  }
+
+  .home-showcase-caption {
+    right: 1rem;
+    bottom: 1rem;
+    left: 1rem;
+  }
+
+  .home-showcase-caption h2 {
+    font-size: 1.5rem;
   }
 }
 

@@ -16,27 +16,6 @@
           "title": "Emma portrait 2"
         }
       ]
-    },
-    {
-      "id": "test",
-      "name": "test",
-      "category": "portraits",
-      "description": "somrhihg",
-      "coverImage": "",
-      "images": [
-        {
-          "path": "http://localhost:4000/uploads/test/1791492645580-photo-1.png",
-          "title": "photo-1"
-        },
-        {
-          "path": "http://localhost:4000/uploads/test/1791492645581-photo-2.png",
-          "title": "photo-2"
-        },
-        {
-          "path": "http://localhost:4000/uploads/test/1791492645582-photo-3.png",
-          "title": "photo-3"
-        }
-      ]
     }
   ]
 }

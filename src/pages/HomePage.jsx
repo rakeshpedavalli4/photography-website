@@ -1,13 +1,71 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
+const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+  ? 'http://localhost:4000'
+  : 'https://backend-we97.onrender.com'
+
+function shuffle(items) {
+  const shuffled = [...items]
+  for (let index = shuffled.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1))
+    ;[shuffled[index], shuffled[swapIndex]] = [shuffled[swapIndex], shuffled[index]]
+  }
+  return shuffled
+}
+
 export default function HomePage() {
+  const [slides, setSlides] = useState([])
+  const [activeSlide, setActiveSlide] = useState(0)
+  const [paused, setPaused] = useState(false)
+
   const categories = [
     { id: 'portraits', title: '👤 Portraits', desc: 'Professional headshots and portraits' },
     { id: 'landscapes', title: '🏔️ Landscapes', desc: 'Nature and scenic views' },
     { id: 'events', title: '🎉 Events', desc: 'Weddings, parties & corporate' },
     { id: 'nature', title: '🦁 Nature & Wildlife', desc: 'Wildlife and nature shots' }
   ]
+
+  useEffect(() => {
+    let mounted = true
+    fetch(`${BACKEND_URL}/api/profiles`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Could not load featured photos.')
+        return response.json()
+      })
+      .then((payload) => {
+        const profiles = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload.profiles) ? payload.profiles : []
+        const items = profiles.flatMap((profile) => {
+          const images = profile.images?.length
+            ? profile.images
+            : profile.coverImage ? [{ path: profile.coverImage, title: profile.name }] : []
+          return images.filter((image) => image.path).map((image) => ({
+            src: /^https?:\/\//.test(image.path)
+              ? image.path
+              : `${BACKEND_URL.replace(/\/$/, '')}/images/${String(image.path).replace(/^\/+/, '')}`,
+            title: image.title || profile.name,
+            category: profile.category,
+            profileId: profile.id
+          }))
+        })
+        if (mounted) setSlides(shuffle(items))
+      })
+      .catch((error) => console.warn('[home] featured photos unavailable', { errorName: error.name }))
+
+    return () => { mounted = false }
+  }, [])
+
+  useEffect(() => {
+    if (paused || slides.length < 2) return undefined
+    const timer = window.setInterval(() => {
+      setActiveSlide((current) => (current + 1 + Math.floor(Math.random() * (slides.length - 1))) % slides.length)
+    }, 7000)
+    return () => window.clearInterval(timer)
+  }, [paused, slides.length])
+
+  const currentSlide = slides[activeSlide]
 
   return (
     <section className="home-page">
@@ -20,6 +78,32 @@ export default function HomePage() {
       <div className="categories-section">
         <h2>Explore My Work</h2>
         <p className="section-desc">Select a category to view my portfolio</p>
+
+        {currentSlide && (
+          <section
+            className="home-showcase"
+            aria-label="Featured photography"
+            onMouseEnter={() => setPaused(true)}
+            onMouseLeave={() => setPaused(false)}
+            onFocus={() => setPaused(true)}
+            onBlur={(event) => {
+              if (!event.currentTarget.contains(event.relatedTarget)) setPaused(false)
+            }}
+          >
+            <div className="home-showcase-heading">
+              <span>Selected frames</span>
+              <span>{String(activeSlide + 1).padStart(2, '0')} / {String(slides.length).padStart(2, '0')}</span>
+            </div>
+            <Link className="home-showcase-link" to={`/gallery/${currentSlide.category}/${currentSlide.profileId}`}>
+              <img key={currentSlide.src} src={currentSlide.src} alt={currentSlide.title} />
+              <div className="home-showcase-caption">
+                <span>{currentSlide.category}</span>
+                <h2>{currentSlide.title}</h2>
+                <span>View project</span>
+              </div>
+            </Link>
+          </section>
+        )}
         
         <div className="categories-grid">
           {categories.map(cat => (

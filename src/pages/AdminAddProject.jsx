@@ -29,19 +29,27 @@ export default function AdminAddProject() {
   useEffect(() => {
     let mounted = true
 
+    console.info('[admin-project] session check started', { category: safeCategory })
     fetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' })
-      .then((r) => r.json())
+      .then((response) => {
+        console.info('[admin-project] session response received', { category: safeCategory, status: response.status })
+        if (!response.ok) throw new Error('Session request failed')
+        return response.json()
+      })
       .then((data) => {
         if (!mounted) return
         if (!data.user) {
+          console.warn('[admin-project] session required; redirecting to sign in', { category: safeCategory })
           const redirect = encodeURIComponent(window.location.pathname || `/admin/add/${safeCategory}`)
           window.location.href = `${BACKEND_URL}/auth/google?redirect=${redirect}`
           return
         }
+        console.info('[admin-project] session confirmed', { category: safeCategory })
         setAuthChecking(false)
       })
-      .catch(() => {
+      .catch((error) => {
         if (!mounted) return
+        console.error('[admin-project] session check failed', { category: safeCategory, errorName: error.name })
         const redirect = encodeURIComponent(window.location.pathname || `/admin/add/${safeCategory}`)
         window.location.href = `${BACKEND_URL}/auth/google?redirect=${redirect}`
       })
@@ -58,6 +66,12 @@ export default function AdminAddProject() {
 
   const handleFiles = useCallback(async (fileList) => {
     const files = Array.from(fileList).filter((file) => file.type && file.type.startsWith('image/'))
+    console.info('[admin-project] files selected', {
+      category: safeCategory,
+      acceptedCount: files.length,
+      rejectedCount: fileList.length - files.length,
+      totalBytes: files.reduce((total, file) => total + file.size, 0)
+    })
     if (!files.length) return
 
     try {
@@ -69,7 +83,7 @@ export default function AdminAddProject() {
       })))
       setDroppedImages((prev) => [...prev, ...results])
     } catch (err) {
-      console.error('Failed reading files', err)
+      console.error('[admin-project] file preview generation failed', { errorName: err.name })
     }
   }, [])
 
@@ -87,8 +101,16 @@ export default function AdminAddProject() {
 
   const handleSubmit = async (event) => {
     event.preventDefault()
+    const typedUrls = imageUrls.split('\n').map((line) => line.trim()).filter(Boolean)
+    console.info('[admin-project] submission started', {
+      category: safeCategory,
+      hasProjectName: Boolean(name.trim()),
+      fileCount: droppedImages.length,
+      urlCount: typedUrls.length
+    })
 
     if (!name.trim()) {
+      console.warn('[admin-project] submission rejected', { reason: 'missing_project_name' })
       setStatus('Please enter a project name.')
       return
     }
@@ -96,8 +118,6 @@ export default function AdminAddProject() {
     const cleanName = name.trim()
     const cleanDescription = description.trim()
     const projectId = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `project-${Date.now()}`
-    const typedUrls = imageUrls.split('\n').map((line) => line.trim()).filter(Boolean)
-
     setUploading(true)
     setStatus('Creating project...')
 
@@ -117,6 +137,7 @@ export default function AdminAddProject() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(profilePayload)
       })
+      console.info('[admin-project] project create response received', { category: safeCategory, status: createRes.status })
 
       if (createRes.status === 401) {
         const redirect = encodeURIComponent(window.location.pathname || `/admin/add/${safeCategory}`)
@@ -136,11 +157,17 @@ export default function AdminAddProject() {
       if (typedUrls.length) form.append('urls', JSON.stringify(typedUrls))
 
       if (droppedImages.length || typedUrls.length) {
+        console.info('[admin-project] image upload started', {
+          category: safeCategory,
+          fileCount: droppedImages.length,
+          urlCount: typedUrls.length
+        })
         const uploadRes = await fetch(`${BACKEND_URL}/api/admin/upload/${encodeURIComponent(projectId)}`, {
           method: 'POST',
           credentials: 'include',
           body: form
         })
+        console.info('[admin-project] image upload response received', { category: safeCategory, status: uploadRes.status })
 
         if (!uploadRes.ok) {
           const uploadText = await uploadRes.text().catch(() => '')
@@ -149,9 +176,10 @@ export default function AdminAddProject() {
       }
 
       setStatus('Project added successfully.')
+      console.info('[admin-project] submission completed', { category: safeCategory })
       navigate(`/gallery/${safeCategory}`)
     } catch (err) {
-      console.error(err)
+      console.error('[admin-project] submission failed', { category: safeCategory, errorName: err.name, message: err.message })
       setStatus(err.message || 'Something went wrong while creating the project.')
     } finally {
       setUploading(false)

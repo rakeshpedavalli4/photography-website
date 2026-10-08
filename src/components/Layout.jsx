@@ -10,10 +10,22 @@ export default function Layout({ children }) {
   const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
+    console.info('[auth] session check started')
     fetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' })
-      .then((response) => response.json())
-      .then((data) => setIsAdmin(Boolean(data.user)))
-      .catch(() => setIsAdmin(false))
+      .then((response) => {
+        console.info('[auth] session response received', { status: response.status })
+        if (!response.ok) throw new Error('Session request failed')
+        return response.json()
+      })
+      .then((data) => {
+        const authenticated = Boolean(data.user)
+        console.info('[auth] session check completed', { authenticated })
+        setIsAdmin(authenticated)
+      })
+      .catch((error) => {
+        console.warn('[auth] session check failed', { errorName: error.name })
+        setIsAdmin(false)
+      })
   }, [])
 
   return (

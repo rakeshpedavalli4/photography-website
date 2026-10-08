@@ -18,18 +18,26 @@ export default function AdminUpload() {
 
   useEffect(() => {
     let mounted = true
+    console.info('[admin-upload] session check started')
     fetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' })
-      .then((r) => r.json())
+      .then((response) => {
+        console.info('[admin-upload] session response received', { status: response.status })
+        if (!response.ok) throw new Error('Session request failed')
+        return response.json()
+      })
       .then((d) => {
         if (!mounted) return
         if (!d.user) {
+          console.warn('[admin-upload] no admin session found')
           setNotAuthenticated(true)
         } else {
+          console.info('[admin-upload] session confirmed')
           setAuthChecking(false)
         }
       })
-      .catch(() => {
+      .catch((error) => {
         if (!mounted) return
+        console.error('[admin-upload] session check failed', { errorName: error.name })
         setNotAuthenticated(true)
       })
     return () => { mounted = false }
@@ -60,12 +68,17 @@ export default function AdminUpload() {
 
   const handleFiles = useCallback(async (fileList) => {
     const files = Array.from(fileList).filter((f) => f.type && f.type.startsWith('image/'))
+    console.info('[admin-upload] files selected', {
+      acceptedCount: files.length,
+      rejectedCount: fileList.length - files.length,
+      totalBytes: files.reduce((total, file) => total + file.size, 0)
+    })
     if (!files.length) return
     try {
       const results = await Promise.all(files.map(async (f) => ({ name: f.name, size: f.size, dataUrl: await readFileAsDataUrl(f), file: f })))
       setDroppedImages((prev) => [...prev, ...results])
     } catch (err) {
-      console.error('Failed reading dropped files', err)
+      console.error('[admin-upload] file preview generation failed', { errorName: err.name })
     }
   }, [])
 
@@ -97,8 +110,14 @@ export default function AdminUpload() {
 
     // combine dropped images (file objects) and any typed URLs
     const typed = imageUrls.split('\n').map((line) => line.trim()).filter(Boolean)
+    console.info('[admin-upload] submission started', {
+      fileCount: droppedImages.length,
+      urlCount: typed.length,
+      hasProfileId: Boolean(profileId.trim())
+    })
 
     if (droppedImages.length === 0 && typed.length === 0) {
+      console.warn('[admin-upload] submission rejected', { reason: 'no_images_selected' })
       setStatus('Please add at least one image (drag files or paste URLs).')
       setUploading(false)
       return
@@ -113,11 +132,13 @@ export default function AdminUpload() {
     if (typed.length) form.append('urls', JSON.stringify(typed))
 
     try {
+      console.info('[admin-upload] request started', { fileCount: droppedImages.length, urlCount: typed.length })
       const res = await fetch(`${BACKEND_URL}/api/admin/upload/${encodeURIComponent(profileId)}`, {
         method: 'POST',
         credentials: 'include',
         body: form
       })
+      console.info('[admin-upload] response received', { status: res.status })
 
       if (res.status === 401) {
         const redirect = encodeURIComponent(window.location.pathname || '/admin/upload')
@@ -145,6 +166,7 @@ export default function AdminUpload() {
               })
               if (fallbackRes.ok) {
                 const data = await fallbackRes.json()
+                console.info('[admin-upload] fallback upload completed', { status: fallbackRes.status })
                 setStatus(data.message || 'Upload complete (legacy endpoint)')
                 setImageUrls('')
                 setDroppedImages([])
@@ -179,6 +201,7 @@ export default function AdminUpload() {
       }
 
       const data = await res.json()
+      console.info('[admin-upload] upload completed', { status: res.status })
       setStatus(data.message || 'Upload complete')
       setImageUrls('')
       setDroppedImages([])

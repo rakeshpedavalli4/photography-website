@@ -24,17 +24,27 @@ export default function CategoryPage({ category }) {
   useEffect(() => {
     let mounted = true
 
+    console.info('[gallery] session check started', { category })
     fetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' })
-      .then((r) => r.json())
-      .then((data) => {
-        if (mounted) setAdminLoggedIn(Boolean(data.user))
+      .then((response) => {
+        console.info('[gallery] session response received', { category, status: response.status })
+        if (!response.ok) throw new Error('Session request failed')
+        return response.json()
       })
-      .catch(() => {
+      .then((data) => {
+        const authenticated = Boolean(data.user)
+        console.info('[gallery] session check completed', { category, authenticated })
+        if (mounted) setAdminLoggedIn(authenticated)
+      })
+      .catch((error) => {
+        console.warn('[gallery] session check failed', { category, errorName: error.name })
         if (mounted) setAdminLoggedIn(false)
       })
 
+    console.info('[gallery] project request started', { category })
     fetch(`${BACKEND_URL}/api/profiles?category=${encodeURIComponent(category)}`)
       .then(async (response) => {
+        console.info('[gallery] project response received', { category, status: response.status })
         if (!response.ok) throw new Error('Could not load projects.')
         return response.json()
       })
@@ -42,6 +52,11 @@ export default function CategoryPage({ category }) {
         const categoryProfiles = Array.isArray(payload)
           ? payload
           : Array.isArray(payload.profiles) ? payload.profiles : []
+        console.info('[gallery] projects loaded', {
+          category,
+          count: categoryProfiles.length,
+          responseShape: Array.isArray(payload) ? 'array' : Array.isArray(payload.profiles) ? 'wrapped-array' : 'unknown'
+        })
         if (!mounted) return
         setProfiles(categoryProfiles)
         if (categoryProfiles.length > 0) {
@@ -49,19 +64,22 @@ export default function CategoryPage({ category }) {
           return
         }
 
+        console.info('[gallery] fallback image request started', { category })
         return fetch(`${BACKEND_URL}/api/images?category=${encodeURIComponent(category)}`)
           .then(async (imageResponse) => {
+            console.info('[gallery] fallback image response received', { category, status: imageResponse.status })
             if (imageResponse.status === 404) return []
             if (!imageResponse.ok) throw new Error('Could not load images.')
             const imagePayload = await imageResponse.json()
             return Array.isArray(imagePayload) ? imagePayload : []
           })
           .then((imageData) => {
+            console.info('[gallery] fallback images loaded', { category, count: imageData.length })
             if (mounted) setImages(imageData)
           })
       })
       .catch((err) => {
-        console.error(err)
+        console.error('[gallery] project loading failed', { category, errorName: err.name, message: err.message })
         if (mounted) {
           setProfiles([])
           setImages([])
@@ -80,8 +98,12 @@ export default function CategoryPage({ category }) {
 
   const handleDeleteProfile = async (profile) => {
     const confirmed = window.confirm(`Delete "${profile.name}" and its uploaded photos?`)
-    if (!confirmed) return
+    if (!confirmed) {
+      console.info('[gallery] project deletion cancelled', { category })
+      return
+    }
 
+    console.info('[gallery] project deletion started', { category })
     setDeletingProfile(profile.id)
     setDeleteError('')
     try {
@@ -89,9 +111,12 @@ export default function CategoryPage({ category }) {
         method: 'DELETE',
         credentials: 'include'
       })
+      console.info('[gallery] project deletion response received', { category, status: response.status })
       if (!response.ok) throw new Error('Could not delete this project.')
       setProfiles((current) => current.filter((item) => item.id !== profile.id))
+      console.info('[gallery] project deletion completed', { category })
     } catch (error) {
+      console.error('[gallery] project deletion failed', { category, errorName: error.name, message: error.message })
       setDeleteError(error.message || 'Could not delete this project.')
     } finally {
       setDeletingProfile(null)

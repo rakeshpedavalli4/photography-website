@@ -12,25 +12,44 @@ export default function AdminProfiles() {
   const [authChecking, setAuthChecking] = useState(true)
   useEffect(() => {
     let mounted = true
+    console.info('[admin-profiles] session check started')
     fetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' })
-      .then((r) => r.json())
+      .then((response) => {
+        console.info('[admin-profiles] session response received', { status: response.status })
+        if (!response.ok) throw new Error('Session request failed')
+        return response.json()
+      })
       .then((d) => {
         if (!mounted) return
         if (!d.user) {
+          console.warn('[admin-profiles] session required; redirecting to sign in')
           const redirect = encodeURIComponent(window.location.pathname || '/admin/profiles')
           window.location.href = `${BACKEND_URL}/auth/google?redirect=${redirect}`
         } else {
+          console.info('[admin-profiles] session confirmed')
           setAuthChecking(false)
-          // now fetch profiles
+          console.info('[admin-profiles] profile request started')
           fetch(`${BACKEND_URL}/api/admin/profiles`, { credentials: 'include' })
-            .then((r) => r.json())
-            .then((data) => setProfiles(data))
-            .catch((err) => console.error(err))
-            .finally(() => setLoading(false))
+            .then(async (response) => {
+              console.info('[admin-profiles] profile response received', { status: response.status })
+              if (!response.ok) throw new Error('Could not load admin profiles.')
+              return response.json()
+            })
+            .then((data) => {
+              const profileList = Array.isArray(data) ? data : Array.isArray(data.profiles) ? data.profiles : []
+              console.info('[admin-profiles] profiles loaded', { count: profileList.length })
+              setProfiles(profileList)
+            })
+            .catch((error) => console.error('[admin-profiles] profile request failed', { errorName: error.name }))
+            .finally(() => {
+              console.info('[admin-profiles] loading state cleared')
+              setLoading(false)
+            })
         }
       })
-      .catch(() => {
+      .catch((error) => {
         if (!mounted) return
+        console.error('[admin-profiles] session check failed', { errorName: error.name })
         const redirect = encodeURIComponent(window.location.pathname || '/admin/profiles')
         window.location.href = `${BACKEND_URL}/auth/google?redirect=${redirect}`
       })

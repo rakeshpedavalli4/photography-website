@@ -12,16 +12,24 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    console.info('[profile] load started', { category })
     fetch(`${BACKEND_URL}/api/profiles/${encodeURIComponent(profileId)}`)
       .then(async (response) => {
+        console.info('[profile] response received', { category, status: response.status })
         if (!response.ok) return null
         const payload = await response.json()
         return payload.profile || payload
       })
-      .then((data) => setProfile(data))
-      .catch((err) => console.error(err))
-      .finally(() => setLoading(false))
-  }, [profileId])
+      .then((data) => {
+        console.info('[profile] load completed', { category, found: Boolean(data), imageCount: data?.images?.length || 0 })
+        setProfile(data)
+      })
+      .catch((error) => console.error('[profile] load failed', { category, errorName: error.name }))
+      .finally(() => {
+        console.info('[profile] loading state cleared', { category })
+        setLoading(false)
+      })
+  }, [category, profileId])
 
   if (loading) return <section className="profile-page"><p>Loading profile...</p></section>
   if (!profile) return <section className="profile-page"><p>Profile not found.</p></section>

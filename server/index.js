@@ -20,8 +20,9 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 
 const app = express();
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 // If running behind a proxy (Render, Heroku, etc.) enable trust proxy so req.protocol and host are correct
-app.set('trust proxy', true);
+app.set('trust proxy', IS_PRODUCTION ? 1 : false);
 const PORT = process.env.PORT || 4000;
 
 const NAS_BASE = process.env.NAS_BASE_URL;
@@ -39,6 +40,19 @@ const ALLOWED_EMAILS = (process.env.GOOGLE_ALLOWED_EMAILS || '').split(',').map(
 function isPlaceholder(value) {
   if (!value || typeof value !== 'string') return true;
   return ['your-google-client-id', 'your-google-client-secret', 'your-email@gmail.com', 'change-this-secret', 'your-nas-username', 'your-nas-password'].includes(value.trim().toLowerCase());
+}
+
+function logEvent(event, details = {}, level = 'info') {
+  console[level](JSON.stringify({ timestamp: new Date().toISOString(), event, ...details }));
+}
+
+function getLogRoute(pathname) {
+  if (pathname.startsWith('/api/admin/profiles/')) return '/api/admin/profiles/:profileId';
+  if (pathname.startsWith('/api/admin/upload/')) return '/api/admin/upload/:profileId';
+  if (pathname.startsWith('/api/profiles/')) return '/api/profiles/:profileId';
+  if (pathname.startsWith('/uploads/')) return '/uploads/:profileId/:filename';
+  if (pathname.startsWith('/images/')) return '/images/*';
+  return pathname;
 }
 
 const GOOGLE_ENABLED = Boolean(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET && !isPlaceholder(GOOGLE_CLIENT_ID) && !isPlaceholder(GOOGLE_CLIENT_SECRET));
@@ -100,8 +114,22 @@ app.use(express.urlencoded({ extended: true }));
 // Basic security headers and rate limiting
 app.use(helmet());
 app.use(rateLimit({ windowMs: 60 * 1000, max: 120 })); // limit to 120 requests per minute per IP
+app.use((req, res, next) => {
+  const route = getLogRoute(req.path);
+  const startedAt = Date.now();
+  logEvent('http.request', { method: req.method, route });
+  res.on('finish', () => {
+    const details = {
+      method: req.method,
+      route,
+      status: res.statusCode,
+      durationMs: Date.now() - startedAt
+    };
+    logEvent('http.response', details, res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info');
+  });
+  next();
+});
 
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 app.use(session({
   secret: SESSION_SECRET,
   resave: false,
@@ -119,8 +147,10 @@ if (GOOGLE_ENABLED) {
   }, (accessToken, refreshToken, profile, done) => {
     const email = profile.emails && profile.emails[0] ? profile.emails[0].value.toLowerCase() : '';
     if (ALLOWED_EMAILS.length && !ALLOWED_EMAILS.includes(email)) {
+      logEvent('auth.oauth.rejected', { reason: 'email_not_allowed' }, 'warn');
       return done(null, false, { message: 'Email not allowed' });
     }
+    logEvent('auth.oauth.verified', { allowlistEnabled: ALLOWED_EMAILS.length > 0 });
     return done(null, {
       id: profile.id,
       email,
@@ -155,6 +185,7 @@ app.use(function (req, res, next) {
 });
 
 app.get('/api/auth/config', (req, res) => {
+  logEvent('auth.config.read', { googleEnabled: IS_LOCAL_DEV ? false : GOOGLE_ENABLED });
   return res.json({ googleEnabled: IS_LOCAL_DEV ? false : GOOGLE_ENABLED, frontendUrl: FRONTEND_URL });
 });
 
@@ -162,13 +193,19 @@ app.get('/api/auth/user', (req, res) => {
   if (!req.user && IS_LOCAL_DEV) {
     req.user = LOCAL_ADMIN_USER;
   }
+  logEvent('auth.session.checked', { authenticated: Boolean(req.user) });
   if (!req.user) return res.json({ user: null });
   return res.json({ user: req.user });
 });
 
 app.post('/api/auth/logout', (req, res) => {
+  logEvent('auth.logout.started', { authenticated: Boolean(req.user) });
   req.logout?.(() => {});
-  req.session.destroy(() => res.json({ ok: true }));
+  req.session.destroy((error) => {
+    if (error) logEvent('auth.logout.failed', { message: error.message }, 'error');
+    else logEvent('auth.logout.completed');
+    res.json({ ok: !error });
+  });
 });
 
 if (GOOGLE_ENABLED) {
@@ -176,12 +213,14 @@ if (GOOGLE_ENABLED) {
   // return the user to the original frontend route after successful login.
   app.get('/auth/google', (req, res, next) => {
     req.session.redirectTo = req.query.redirect || '/admin';
+    logEvent('auth.oauth.started');
     passport.authenticate('google', { scope: ['profile', 'email'], prompt: 'select_account' })(req, res, next);
   });
 
   // Use passport to authenticate, then redirect to a success page on the frontend which will
   // forward the user to the intended path. On failure redirect to the public home page.
   app.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: `${FRONTEND_URL}/?auth=failed` }), (req, res) => {
+    logEvent('auth.oauth.completed', { authenticated: Boolean(req.user) });
     const redirectPath = req.session.redirectTo || '/admin/upload';
     delete req.session.redirectTo;
     // Ensure redirect is relative (prevent open redirect). Only allow paths starting with '/'.
@@ -195,21 +234,30 @@ app.get('/api/profiles', (req, res) => {
   const category = req.query.category;
   const profiles = readProfiles();
   if (category) {
-    return res.json(profiles.filter((profile) => profile.category === category));
+    const categoryProfiles = profiles.filter((profile) => profile.category === category);
+    logEvent('profiles.listed', { category, count: categoryProfiles.length });
+    return res.json(categoryProfiles);
   }
+  logEvent('profiles.listed', { category: 'all', count: profiles.length });
   return res.json(profiles);
 });
 
 app.get('/api/profiles/:profileId', (req, res) => {
   const profile = readProfiles().find((item) => item.id === req.params.profileId);
-  if (!profile) return res.status(404).json({ error: 'Profile not found' });
+  if (!profile) {
+    logEvent('profiles.not_found', {}, 'warn');
+    return res.status(404).json({ error: 'Profile not found' });
+  }
+  logEvent('profiles.detail.read', { category: profile.category, imageCount: (profile.images || []).length });
   return res.json(profile);
 });
 
 app.get('/api/admin/profiles', (req, res) => {
   if (!req.user && IS_LOCAL_DEV) req.user = LOCAL_ADMIN_USER;
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
-  return res.json(readProfiles());
+  const profiles = readProfiles();
+  logEvent('admin.profiles.listed', { count: profiles.length });
+  return res.json(profiles);
 });
 
 app.post('/api/admin/profiles', (req, res) => {
@@ -223,6 +271,7 @@ app.post('/api/admin/profiles', (req, res) => {
   if (existingIndex > -1) profiles[existingIndex] = profile;
   else profiles.push(profile);
   writeProfiles(profiles);
+  logEvent('admin.profile.saved', { category: profile.category, created: existingIndex === -1, profileCount: profiles.length });
   return res.json({ ok: true, profile });
 });
 
@@ -247,11 +296,15 @@ app.delete('/api/admin/profiles/:profileId', ensureAuthenticated, (req, res) => 
 
   const profiles = readProfiles();
   const profileIndex = profiles.findIndex((profile) => sanitizeProfileId(profile.id) === profileId);
-  if (profileIndex === -1) return res.status(404).json({ error: 'Profile not found' });
+  if (profileIndex === -1) {
+    logEvent('admin.profile.delete.not_found', {}, 'warn');
+    return res.status(404).json({ error: 'Profile not found' });
+  }
 
-  profiles.splice(profileIndex, 1);
+  const [deletedProfile] = profiles.splice(profileIndex, 1);
   writeProfiles(profiles);
   fs.rmSync(profileDirectory, { recursive: true, force: true });
+  logEvent('admin.profile.deleted', { category: deletedProfile.category, remainingProfiles: profiles.length });
   return res.json({ ok: true });
 });
 
@@ -343,6 +396,13 @@ app.post('/api/admin/upload/:profileId', ensureAuthenticated, upload.array('imag
   profile.images = [...(profile.images || []), ...mappedImages];
   writeProfiles(profiles);
 
+  logEvent('admin.images.uploaded', {
+    category: profile.category,
+    fileCount: files.length,
+    totalBytes: files.reduce((total, file) => total + file.size, 0),
+    urlCount: mappedFromUrls.length,
+    imageCount: profile.images.length
+  });
   return res.json({ ok: true, message: `Added ${mappedImages.length} photo(s) to ${profile.name}` });
 });
 
@@ -405,5 +465,11 @@ app.get('/images/*', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Image proxy server listening on port ${PORT}`);
+  logEvent('server.started', {
+    port: Number(PORT),
+    environment: process.env.NODE_ENV || 'development',
+    googleEnabled: GOOGLE_ENABLED,
+    imageListConfigured: Boolean(IMAGE_LIST_URL),
+    nasConfigured: Boolean(NAS_BASE)
+  });
 });

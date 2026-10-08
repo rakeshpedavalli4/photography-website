@@ -67,6 +67,10 @@ export default function HomePage() {
 
   const currentSlide = slides[activeSlide]
 
+  const moveSlide = (direction) => {
+    setActiveSlide((current) => (current + direction + slides.length) % slides.length)
+  }
+
   return (
     <section className="home-page">
       <div className="hero">
@@ -94,14 +98,24 @@ export default function HomePage() {
               <span>Selected frames</span>
               <span>{String(activeSlide + 1).padStart(2, '0')} / {String(slides.length).padStart(2, '0')}</span>
             </div>
-            <Link className="home-showcase-link" to={`/gallery/${currentSlide.category}/${currentSlide.profileId}`}>
-              <img key={currentSlide.src} src={currentSlide.src} alt={currentSlide.title} />
-              <div className="home-showcase-caption">
-                <span>{currentSlide.category}</span>
-                <h2>{currentSlide.title}</h2>
-                <span>View project</span>
-              </div>
-            </Link>
+            <div className="home-showcase-frame">
+              <Link className="home-showcase-link" to={`/gallery/${currentSlide.category}/${currentSlide.profileId}`}>
+                <img key={currentSlide.src} src={currentSlide.src} alt={currentSlide.title} />
+                <div className="home-showcase-caption">
+                  <span>{currentSlide.category}</span>
+                  <h2>{currentSlide.title}</h2>
+                  <span>View project</span>
+                </div>
+              </Link>
+              {slides.length > 1 && (
+                <>
+                  <button className="home-showcase-control previous" type="button" aria-label="Previous photo" onClick={() => moveSlide(-1)}>
+                  </button>
+                  <button className="home-showcase-control next" type="button" aria-label="Next photo" onClick={() => moveSlide(1)}>
+                  </button>
+                </>
+              )}
+            </div>
           </section>
         )}
         

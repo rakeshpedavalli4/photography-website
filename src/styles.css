@@ -378,6 +378,54 @@ a { color: inherit; }
   border-color: rgba(215, 196, 162, 0.35);
 }
 
+.photo-cover-button {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 2;
+  min-height: 40px;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: rgba(10, 10, 10, 0.9);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.68rem;
+  letter-spacing: 0.08rem;
+  text-transform: uppercase;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease, color 0.2s ease;
+}
+
+.photo:hover .photo-cover-button,
+.photo:focus-within .photo-cover-button,
+.photo-cover-button:focus-visible {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.photo-cover-button[aria-pressed="true"] {
+  background: var(--accent);
+  color: #111;
+}
+
+.photo-cover-button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+@media (hover: none) {
+  .photo-cover-button {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+}
+
 .photo a {
   display: block;
 }
@@ -605,42 +653,18 @@ a { color: inherit; }
   outline-offset: 3px;
 }
 
-.profile-cover-dropzone {
-  display: flex;
-  min-height: 88px;
-  align-items: center;
-  gap: 1rem;
-  margin: 0 0 1.5rem;
-  padding: 0.9rem 1rem;
-  border: 1px dashed rgba(215, 196, 162, 0.55);
+.profile-cover-message {
+  margin: 1rem 0;
   color: var(--muted);
   font-size: 0.78rem;
-  letter-spacing: 0.08rem;
-  text-transform: uppercase;
-  transition: background 0.2s ease, border-color 0.2s ease;
 }
 
-.profile-cover-dropzone.dragover {
-  border-color: var(--accent);
-  background: rgba(215, 196, 162, 0.1);
-  color: var(--text);
-}
-
-.profile-cover-dropzone.saving {
-  opacity: 0.7;
-}
-
-.profile-cover-dropzone img {
-  width: 72px;
-  height: 58px;
-  flex: 0 0 auto;
-  object-fit: cover;
-}
-
-.profile-cover-message {
-  margin-left: auto;
+.profile-cover-message.success {
   color: var(--accent);
-  text-transform: none;
+}
+
+.profile-cover-message.error {
+  color: #ff6b6b;
 }
 
 .profile-gallery-wrap {
@@ -1351,13 +1375,8 @@ a { color: inherit; }
     columns: 1;
   }
 
-  .profile-cover-dropzone {
-    flex-wrap: wrap;
-  }
-
   .profile-cover-message {
-    flex-basis: 100%;
-    margin-left: 0;
+    font-size: 0.72rem;
   }
 
   .navbar {

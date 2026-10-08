@@ -1063,7 +1063,7 @@ a { color: inherit; }
 
 .preview-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.8rem;
   margin-bottom: 1rem;
 }
@@ -1286,6 +1286,10 @@ a { color: inherit; }
 }
 
 @media (max-width: 768px) {
+  .preview-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .admin-add-project {
     margin: 1.5rem 1rem;
     padding: 1.5rem 1rem;
@@ -1326,6 +1330,13 @@ a { color: inherit; }
 
   .hero h1 {
     font-size: clamp(1.8rem, 9vw, 3rem);
+  }
+}
+
+@media (max-width: 480px) {
+  .preview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.55rem;
   }
 }
 

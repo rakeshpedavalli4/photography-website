@@ -22,6 +22,7 @@ export default function AdminAddProject() {
   const [description, setDescription] = useState('')
   const [imageUrls, setImageUrls] = useState('')
   const [droppedImages, setDroppedImages] = useState([])
+  const [coverImageId, setCoverImageId] = useState('')
   const [status, setStatus] = useState('')
   const [uploading, setUploading] = useState(false)
   const [isDragActive, setIsDragActive] = useState(false)
@@ -76,19 +77,24 @@ export default function AdminAddProject() {
 
     try {
       const results = await Promise.all(files.map(async (file) => ({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2)}`,
         name: file.name,
         size: file.size,
         dataUrl: await readFileAsDataUrl(file),
         file
       })))
       setDroppedImages((prev) => [...prev, ...results])
+      setCoverImageId((current) => current || results[0]?.id || '')
     } catch (err) {
       console.error('[admin-project] file preview generation failed', { errorName: err.name })
     }
   }, [])
 
   const removeDroppedImage = (index) => {
-    setDroppedImages((prev) => prev.filter((_, i) => i !== index))
+    const removedImage = droppedImages[index]
+    const remainingImages = droppedImages.filter((_, currentIndex) => currentIndex !== index)
+    setDroppedImages(remainingImages)
+    if (removedImage?.id === coverImageId) setCoverImageId(remainingImages[0]?.id || '')
   }
 
   const handleDrop = async (event) => {
@@ -118,6 +124,7 @@ export default function AdminAddProject() {
     const cleanName = name.trim()
     const cleanDescription = description.trim()
     const projectId = cleanName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `project-${Date.now()}`
+    const selectedCoverIndex = droppedImages.findIndex((image) => image.id === coverImageId)
     setUploading(true)
     setStatus('Creating project...')
 
@@ -155,6 +162,7 @@ export default function AdminAddProject() {
         if (item.file) form.append('images', item.file)
       })
       if (typedUrls.length) form.append('urls', JSON.stringify(typedUrls))
+      form.append('coverIndex', String(selectedCoverIndex))
 
       if (droppedImages.length || typedUrls.length) {
         console.info('[admin-project] image upload started', {
@@ -224,8 +232,17 @@ export default function AdminAddProject() {
         {droppedImages.length > 0 && (
           <div className="preview-grid">
             {droppedImages.map((image, index) => (
-              <div className="preview-thumb" key={`${image.name}-${index}`}>
-                <img src={image.dataUrl} alt={image.name} />
+              <div className={`preview-thumb ${image.id === coverImageId ? 'is-cover' : ''}`} key={image.id}>
+                <button
+                  className="preview-cover-choice"
+                  type="button"
+                  aria-pressed={image.id === coverImageId}
+                  aria-label={image.id === coverImageId ? `${image.name} is the cover photo` : `Make ${image.name} the cover photo`}
+                  onClick={() => setCoverImageId(image.id)}
+                >
+                  <img src={image.dataUrl} alt={image.name} />
+                  <span className="preview-cover-label">{image.id === coverImageId ? 'Cover photo' : 'Set as cover'}</span>
+                </button>
                 <div className="preview-meta">
                   <div className="preview-name">{image.name}</div>
                   <button type="button" className="ghost-btn small" onClick={() => removeDroppedImage(index)}>Remove</button>

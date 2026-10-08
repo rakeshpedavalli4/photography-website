@@ -414,6 +414,12 @@ app.post('/api/admin/upload/:profileId', ensureAuthenticated, upload.array('imag
   const mappedImages = [...mappedFromFiles, ...mappedFromUrls];
 
   profile.images = [...(profile.images || []), ...mappedImages];
+  const coverIndex = Number.parseInt(req.body && req.body.coverIndex, 10);
+  if (Number.isInteger(coverIndex) && coverIndex >= 0 && coverIndex < mappedImages.length) {
+    profile.coverImage = mappedImages[coverIndex].path;
+  } else if (!profile.coverImage && mappedImages.length > 0) {
+    profile.coverImage = mappedImages[0].path;
+  }
   writeProfiles(profiles);
 
   logEvent('admin.images.uploaded', {
@@ -421,7 +427,8 @@ app.post('/api/admin/upload/:profileId', ensureAuthenticated, upload.array('imag
     fileCount: files.length,
     totalBytes: files.reduce((total, file) => total + file.size, 0),
     urlCount: mappedFromUrls.length,
-    imageCount: profile.images.length
+    imageCount: profile.images.length,
+    coverImageSet: Boolean(profile.coverImage)
   });
   return res.json({ ok: true, message: `Added ${mappedImages.length} photo(s) to ${profile.name}` });
 });

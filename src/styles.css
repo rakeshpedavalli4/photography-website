@@ -1065,6 +1065,40 @@ a { color: inherit; }
   display: block;
 }
 
+.preview-cover-choice {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.preview-cover-choice:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.preview-cover-label {
+  position: absolute;
+  right: 0.35rem;
+  bottom: 0.35rem;
+  left: 0.35rem;
+  padding: 0.35rem 0.45rem;
+  background: rgba(0, 0, 0, 0.78);
+  color: var(--text);
+  font-size: 0.65rem;
+  letter-spacing: 0.06rem;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.preview-thumb.is-cover {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+}
+
 .preview-meta {
   padding: 0.55rem 0.6rem;
   display: flex;

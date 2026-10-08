@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-
-const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-  ? 'http://localhost:4000'
-  : 'https://backend-we97.onrender.com'
+import { BACKEND_URL } from '../backendUrl'
 
 export default function AdminDashboard() {
   const [user, setUser] = useState(null)
@@ -61,7 +58,7 @@ export default function AdminDashboard() {
         {googleEnabled ? (
           <a
             className="primary-btn"
-            href={`${BACKEND_URL}/auth/google?redirect=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '/')}`}
+            href={`${BACKEND_URL}/auth/google?returnTo=${encodeURIComponent(typeof window !== 'undefined' ? window.location.pathname : '/')}`}
           >
             Sign in with Google
           </a>

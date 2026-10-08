@@ -1,9 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-
-const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-  ? 'http://localhost:4000'
-  : 'https://backend-we97.onrender.com'
+import { BACKEND_URL } from '../backendUrl'
 
 export default function Layout({ children }) {
   const location = useLocation()
@@ -64,7 +61,7 @@ export default function Layout({ children }) {
                 {loggingOut ? 'Logging out...' : 'Logout'}
               </button>
             ) : (
-              <a className="admin-button" href={`${BACKEND_URL}/auth/google?redirect=${encodeURIComponent('/')}`}>Admin</a>
+              <a className="admin-button" href={`${BACKEND_URL}/auth/google?returnTo=${encodeURIComponent('/')}`}>Admin</a>
             )}
           </div>
         </nav>

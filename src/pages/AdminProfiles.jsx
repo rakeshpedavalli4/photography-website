@@ -1,8 +1,5 @@
 import React, { useEffect, useState } from 'react'
-
-const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-  ? 'http://localhost:4000'
-  : 'https://backend-we97.onrender.com'
+import { BACKEND_URL } from '../backendUrl'
 
 export default function AdminProfiles() {
   const [profiles, setProfiles] = useState([])
@@ -23,8 +20,8 @@ export default function AdminProfiles() {
         if (!mounted) return
         if (!d.user) {
           console.warn('[admin-profiles] session required; redirecting to sign in')
-          const redirect = encodeURIComponent(window.location.pathname || '/admin/profiles')
-          window.location.href = `${BACKEND_URL}/auth/google?redirect=${redirect}`
+          const returnTo = encodeURIComponent(window.location.pathname || '/admin/profiles')
+          window.location.href = `${BACKEND_URL}/auth/google?returnTo=${returnTo}`
         } else {
           console.info('[admin-profiles] session confirmed')
           setAuthChecking(false)
@@ -50,8 +47,8 @@ export default function AdminProfiles() {
       .catch((error) => {
         if (!mounted) return
         console.error('[admin-profiles] session check failed', { errorName: error.name })
-        const redirect = encodeURIComponent(window.location.pathname || '/admin/profiles')
-        window.location.href = `${BACKEND_URL}/auth/google?redirect=${redirect}`
+        const returnTo = encodeURIComponent(window.location.pathname || '/admin/profiles')
+        window.location.href = `${BACKEND_URL}/auth/google?returnTo=${returnTo}`
       })
     return () => { mounted = false }
   }, [])

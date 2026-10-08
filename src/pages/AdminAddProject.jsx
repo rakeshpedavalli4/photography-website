@@ -1,9 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-
-const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-  ? 'http://localhost:4000'
-  : 'https://backend-we97.onrender.com'
+import { BACKEND_URL } from '../backendUrl'
 
 const CATEGORY_LABELS = {
   portraits: 'Portraits',
@@ -40,8 +37,8 @@ export default function AdminAddProject() {
         if (!mounted) return
         if (!data.user) {
           console.warn('[admin-project] session required; redirecting to sign in', { category: safeCategory })
-          const redirect = encodeURIComponent(window.location.pathname || `/admin/add/${safeCategory}`)
-          window.location.href = `${BACKEND_URL}/auth/google?redirect=${redirect}`
+          const returnTo = encodeURIComponent(window.location.pathname || `/admin/add/${safeCategory}`)
+          window.location.href = `${BACKEND_URL}/auth/google?returnTo=${returnTo}`
           return
         }
         console.info('[admin-project] session confirmed', { category: safeCategory })
@@ -50,8 +47,8 @@ export default function AdminAddProject() {
       .catch((error) => {
         if (!mounted) return
         console.error('[admin-project] session check failed', { category: safeCategory, errorName: error.name })
-        const redirect = encodeURIComponent(window.location.pathname || `/admin/add/${safeCategory}`)
-        window.location.href = `${BACKEND_URL}/auth/google?redirect=${redirect}`
+        const returnTo = encodeURIComponent(window.location.pathname || `/admin/add/${safeCategory}`)
+        window.location.href = `${BACKEND_URL}/auth/google?returnTo=${returnTo}`
       })
 
     return () => { mounted = false }
@@ -140,8 +137,8 @@ export default function AdminAddProject() {
       console.info('[admin-project] project create response received', { category: safeCategory, status: createRes.status })
 
       if (createRes.status === 401) {
-        const redirect = encodeURIComponent(window.location.pathname || `/admin/add/${safeCategory}`)
-        window.location.href = `${BACKEND_URL}/auth/google?redirect=${redirect}`
+        const returnTo = encodeURIComponent(window.location.pathname || `/admin/add/${safeCategory}`)
+        window.location.href = `${BACKEND_URL}/auth/google?returnTo=${returnTo}`
         return
       }
 

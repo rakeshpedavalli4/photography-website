@@ -30,16 +30,20 @@ Important notes on image fidelity and color
 Google admin login (OIDC)
 The admin area is protected by Google sign-in and only allows configured emails. To enable it:
 1. Create a Google OAuth 2.0 Client ID in Google Cloud Console.
-2. Add the redirect URI:
+2. Add these redirect URIs:
    http://localhost:4000/auth/google/callback
-3. Set the following env vars using local-only values in `.env.local` or Netlify site settings:
+   https://rakeshphotography.netlify.app/auth/google/callback
+3. Set the following values on the backend host (Render in production; local-only in `.env` for development):
    GOOGLE_CLIENT_ID=replace-with-google-client-id
    GOOGLE_CLIENT_SECRET=replace-with-google-client-secret
    GOOGLE_CALLBACK_URL=http://localhost:4000/auth/google/callback
    GOOGLE_ALLOWED_EMAILS=your-email@example.com
    SESSION_SECRET=replace-with-long-random-secret
-4. Restart the app and visit /admin.
-5. The public site remains public; only /admin and admin APIs are protected.
+   FRONTEND_URL=https://rakeshphotography.netlify.app
+4. In Render production settings, set GOOGLE_CALLBACK_URL to:
+   https://rakeshphotography.netlify.app/auth/google/callback
+5. Netlify proxies `/auth/*`, `/api/*`, and `/uploads/*` to Render so the browser uses the frontend origin for OAuth and session requests. Keep the redirects in `netlify.toml` ahead of the SPA fallback.
+6. Restart or redeploy both services and visit /admin. The public site remains public; only admin APIs are protected.
 
 Next steps (optional)
 - Connect to your NAS via an S3-compatible gateway (MinIO or rclone serve s3) for robust access and better tooling.

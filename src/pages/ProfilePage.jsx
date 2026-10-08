@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Gallery from '../components/Gallery'
-import { BACKEND_URL } from '../backendUrl'
+
+const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+  ? 'http://localhost:4000'
+  : 'https://backend-we97.onrender.com'
 
 export default function ProfilePage() {
   const { category, profileId } = useParams()

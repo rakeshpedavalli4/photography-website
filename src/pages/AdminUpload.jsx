@@ -1,6 +1,9 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { BACKEND_URL } from '../backendUrl'
+
+const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+  ? 'http://localhost:4000'
+  : 'https://backend-we97.onrender.com'
 
 export default function AdminUpload() {
   const navigate = useNavigate()
@@ -126,8 +129,8 @@ export default function AdminUpload() {
       console.info('[admin-upload] response received', { status: res.status })
 
       if (res.status === 401) {
-        const returnTo = encodeURIComponent(window.location.pathname || '/admin/upload')
-        window.location.href = `${BACKEND_URL}/auth/google?returnTo=${returnTo}`
+        const redirect = encodeURIComponent(window.location.pathname || '/admin/upload')
+        window.location.href = `${BACKEND_URL}/auth/google?redirect=${redirect}`
         return
       }
 
@@ -203,13 +206,13 @@ export default function AdminUpload() {
   if (authChecking) return <section className="admin-page"><p>Checking authentication...</p></section>
 
   if (notAuthenticated) {
-    const returnTo = encodeURIComponent(window.location.pathname || '/admin/upload')
+    const redirect = encodeURIComponent(window.location.pathname || '/admin/upload')
     return (
       <section className="admin-page admin-login-card">
         <h1>Admin access required</h1>
         <p style={{ color: '#6b6b6b' }}>You must sign in with Google to access the upload tools.</p>
         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '1.25rem' }}>
-          <a className="primary-btn" href={`${BACKEND_URL}/auth/google?returnTo=${returnTo}`}>Sign in with Google</a>
+          <a className="primary-btn" href={`${BACKEND_URL}/auth/google?redirect=${redirect}`}>Sign in with Google</a>
           <a className="ghost-btn" href="/">Return to home</a>
         </div>
       </section>

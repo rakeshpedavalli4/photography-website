@@ -35,6 +35,7 @@ const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || 'http://localhost
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const BACKEND_URL_ENV = process.env.BACKEND_URL || '';
 const SESSION_SECRET = process.env.SESSION_SECRET || 'change-me';
+const SESSION_COOKIE_NAME = 'connect.sid';
 const ALLOWED_EMAILS = (process.env.GOOGLE_ALLOWED_EMAILS || '').split(',').map((email) => email.trim().toLowerCase()).filter(Boolean);
 
 function isPlaceholder(value) {
@@ -131,6 +132,7 @@ app.use((req, res, next) => {
 });
 
 app.use(session({
+  name: SESSION_COOKIE_NAME,
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
@@ -200,11 +202,29 @@ app.get('/api/auth/user', (req, res) => {
 
 app.post('/api/auth/logout', (req, res) => {
   logEvent('auth.logout.started', { authenticated: Boolean(req.user) });
-  req.logout?.(() => {});
-  req.session.destroy((error) => {
-    if (error) logEvent('auth.logout.failed', { message: error.message }, 'error');
-    else logEvent('auth.logout.completed');
-    res.json({ ok: !error });
+  const destroySession = () => {
+    req.session.destroy((error) => {
+      res.clearCookie(SESSION_COOKIE_NAME, {
+        path: '/',
+        secure: IS_PRODUCTION,
+        sameSite: IS_PRODUCTION ? 'none' : 'lax'
+      });
+      if (error) {
+        logEvent('auth.logout.failed', { stage: 'session_destroy', message: error.message }, 'error');
+        return res.status(500).json({ ok: false });
+      }
+      logEvent('auth.logout.completed');
+      return res.json({ ok: true });
+    });
+  };
+
+  if (typeof req.logout !== 'function') return destroySession();
+  return req.logout((error) => {
+    if (error) {
+      logEvent('auth.logout.failed', { stage: 'passport_logout', message: error.message }, 'error');
+      return res.status(500).json({ ok: false });
+    }
+    return destroySession();
   });
 });
 
@@ -308,10 +328,10 @@ app.delete('/api/admin/profiles/:profileId', ensureAuthenticated, (req, res) => 
   return res.json({ ok: true });
 });
 
-// Serve uploaded files from the /uploads folder only to authenticated users
+// Gallery images are public; upload and delete endpoints remain admin-only.
 const UPLOADS_ROOT = path.join(__dirname, '..', 'uploads');
 
-app.get('/uploads/:profileId/:filename', ensureAuthenticated, (req, res) => {
+app.get('/uploads/:profileId/:filename', (req, res) => {
   const profileId = sanitizeProfileId(req.params.profileId || '');
   const filename = req.params.filename || '';
 
@@ -326,8 +346,8 @@ app.get('/uploads/:profileId/:filename', ensureAuthenticated, (req, res) => {
   if (!resolved.startsWith(uploadsResolved)) return res.status(400).send('Invalid path');
   if (!fs.existsSync(resolved)) return res.status(404).send('Not found');
 
-  // Serve file with conservative caching (private)
-  res.set('Cache-Control', 'private, max-age=86400');
+  res.set('Cache-Control', 'public, max-age=86400');
+  res.set('Cross-Origin-Resource-Policy', 'cross-origin');
   return res.sendFile(resolved);
 });
 

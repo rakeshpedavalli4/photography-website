@@ -132,6 +132,16 @@ a { color: inherit; }
   color: #111;
 }
 
+.admin-logout-button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+.admin-logout-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
 .main-content {
   min-height: calc(100vh - 180px);
 }

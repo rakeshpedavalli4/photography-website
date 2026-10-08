@@ -8,6 +8,7 @@ const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname 
 export default function Layout({ children }) {
   const location = useLocation()
   const [isAdmin, setIsAdmin] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
 
   useEffect(() => {
     console.info('[auth] session check started')
@@ -28,6 +29,23 @@ export default function Layout({ children }) {
       })
   }, [])
 
+  const handleLogout = async () => {
+    setLoggingOut(true)
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/auth/logout`, {
+        method: 'POST',
+        credentials: 'include'
+      })
+      if (!response.ok) throw new Error('Logout request failed')
+      console.info('[auth] logout completed', { status: response.status })
+      setIsAdmin(false)
+    } catch (error) {
+      console.error('[auth] logout failed', { errorName: error.name })
+    } finally {
+      setLoggingOut(false)
+    }
+  }
+
   return (
     <div className="app">
       <header className="header">
@@ -42,7 +60,9 @@ export default function Layout({ children }) {
           <div className="admin-controls">
             {isAdmin && <div className="admin-status">You are an admin</div>}
             {isAdmin ? (
-              <Link className="admin-button" to="/gallery/portraits">Admin</Link>
+              <button className="admin-button admin-logout-button" type="button" onClick={handleLogout} disabled={loggingOut}>
+                {loggingOut ? 'Logging out...' : 'Logout'}
+              </button>
             ) : (
               <a className="admin-button" href={`${BACKEND_URL}/auth/google?redirect=${encodeURIComponent('/')}`}>Admin</a>
             )}

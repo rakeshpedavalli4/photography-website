@@ -22,32 +22,56 @@ export default function CategoryPage({ category }) {
   }
 
   useEffect(() => {
+    let mounted = true
+
     fetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' })
       .then((r) => r.json())
-      .then((data) => setAdminLoggedIn(Boolean(data.user)))
-      .catch(() => setAdminLoggedIn(false))
-
-    fetch(`/api/profiles?category=${category}`)
-      .then((r) => r.json())
       .then((data) => {
-        setProfiles(data)
-        if (Array.isArray(data) && data.length > 0) {
+        if (mounted) setAdminLoggedIn(Boolean(data.user))
+      })
+      .catch(() => {
+        if (mounted) setAdminLoggedIn(false)
+      })
+
+    fetch(`${BACKEND_URL}/api/profiles?category=${encodeURIComponent(category)}`)
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Could not load projects.')
+        return response.json()
+      })
+      .then((payload) => {
+        const categoryProfiles = Array.isArray(payload)
+          ? payload
+          : Array.isArray(payload.profiles) ? payload.profiles : []
+        if (!mounted) return
+        setProfiles(categoryProfiles)
+        if (categoryProfiles.length > 0) {
           setImages([])
           return
         }
 
-        return fetch(`/api/images?category=${category}`)
-          .then((imageRes) => imageRes.json())
-          .then((imageData) => setImages(imageData))
+        return fetch(`${BACKEND_URL}/api/images?category=${encodeURIComponent(category)}`)
+          .then(async (imageResponse) => {
+            if (imageResponse.status === 404) return []
+            if (!imageResponse.ok) throw new Error('Could not load images.')
+            const imagePayload = await imageResponse.json()
+            return Array.isArray(imagePayload) ? imagePayload : []
+          })
+          .then((imageData) => {
+            if (mounted) setImages(imageData)
+          })
       })
       .catch((err) => {
         console.error(err)
-        fetch(`/api/images?category=${category}`)
-          .then((r) => r.json())
-          .then((data) => setImages(data))
-          .catch((imageErr) => console.error(imageErr))
+        if (mounted) {
+          setProfiles([])
+          setImages([])
+        }
       })
-      .finally(() => setLoading(false))
+      .finally(() => {
+        if (mounted) setLoading(false)
+      })
+
+    return () => { mounted = false }
   }, [category])
 
   const info = categoryInfo[category] || { title: 'Gallery', desc: '' }

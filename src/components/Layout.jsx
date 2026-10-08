@@ -27,7 +27,14 @@ export default function Layout({ children }) {
             <li><Link to="/" className={location.pathname === '/' ? 'active' : ''}>Home</Link></li>
             <li><Link to="/contact" className={location.pathname === '/contact' ? 'active' : ''}>Contact</Link></li>
           </ul>
-          {isAdmin && <div className="admin-status">You are an admin</div>}
+          <div className="admin-controls">
+            {isAdmin && <div className="admin-status">You are an admin</div>}
+            {isAdmin ? (
+              <Link className="admin-button" to="/gallery/portraits">Admin</Link>
+            ) : (
+              <a className="admin-button" href={`${BACKEND_URL}/auth/google?redirect=${encodeURIComponent('/')}`}>Admin</a>
+            )}
+          </div>
         </nav>
       </header>
 

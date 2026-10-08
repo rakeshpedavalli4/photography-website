@@ -10,6 +10,27 @@ export default function ProfilePage() {
   const { category, profileId } = useParams()
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    let mounted = true
+    console.info('[profile] admin session check started', { category })
+    fetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Session request failed')
+        return response.json()
+      })
+      .then((data) => {
+        const authenticated = Boolean(data.user)
+        console.info('[profile] admin session check completed', { category, authenticated })
+        if (mounted) setIsAdmin(authenticated)
+      })
+      .catch((error) => {
+        console.warn('[profile] admin session check failed', { category, errorName: error.name })
+        if (mounted) setIsAdmin(false)
+      })
+    return () => { mounted = false }
+  }, [category])
 
   useEffect(() => {
     console.info('[profile] load started', { category })
@@ -53,6 +74,16 @@ export default function ProfilePage() {
         <Link to={`/gallery/${category}`} className="back-link">← Back to portraits</Link>
         <h1>{profile.name}</h1>
         <p>{profile.description || 'Portrait collection'}</p>
+        {isAdmin && (
+          <div className="profile-header-actions">
+            <Link
+              className="primary-btn"
+              to={`/admin/upload?profileId=${encodeURIComponent(profile.id)}&category=${encodeURIComponent(category)}`}
+            >
+              Add photos
+            </Link>
+          </div>
+        )}
       </div>
 
       <div className="profile-gallery-wrap">

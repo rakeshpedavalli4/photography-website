@@ -1,11 +1,15 @@
 import React, { useState, useCallback, useEffect } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 
 const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
   ? 'http://localhost:4000'
   : 'https://backend-we97.onrender.com'
 
 export default function AdminUpload() {
-  const [profileId, setProfileId] = useState('emma-johnson')
+  const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const [profileId, setProfileId] = useState(() => searchParams.get('profileId') || 'emma-johnson')
+  const returnCategory = searchParams.get('category')
   const [imageUrls, setImageUrls] = useState('')
   const [droppedImages, setDroppedImages] = useState([]) // { name, size, dataUrl }
   const [status, setStatus] = useState('')
@@ -42,22 +46,6 @@ export default function AdminUpload() {
       })
     return () => { mounted = false }
   }, [])
-
-  if (authChecking) return <section className="admin-page"><p>Checking authentication...</p></section>
-
-  if (notAuthenticated) {
-    const redirect = encodeURIComponent(window.location.pathname || '/admin/upload')
-    return (
-      <section className="admin-page admin-login-card">
-        <h1>Admin access required</h1>
-        <p style={{ color: '#6b6b6b' }}>You must sign in with Google to access the upload tools.</p>
-        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '1.25rem' }}>
-          <a className="primary-btn" href={`${BACKEND_URL}/auth/google?redirect=${redirect}`}>Sign in with Google</a>
-          <a className="ghost-btn" href="/">Return to home</a>
-        </div>
-      </section>
-    )
-  }
 
   const readFileAsDataUrl = (file) => new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -170,6 +158,7 @@ export default function AdminUpload() {
                 setStatus(data.message || 'Upload complete (legacy endpoint)')
                 setImageUrls('')
                 setDroppedImages([])
+                if (returnCategory) navigate(`/gallery/${returnCategory}/${encodeURIComponent(profileId)}`)
                 return
               } else {
                 const text = await fallbackRes.text().catch(() => '<no body>')
@@ -205,6 +194,7 @@ export default function AdminUpload() {
       setStatus(data.message || 'Upload complete')
       setImageUrls('')
       setDroppedImages([])
+      if (returnCategory) navigate(`/gallery/${returnCategory}/${encodeURIComponent(profileId)}`)
     } catch (err) {
       console.error(err)
       setStatus('Upload failed — check console for details')
@@ -213,11 +203,29 @@ export default function AdminUpload() {
     }
   }
 
+  if (authChecking) return <section className="admin-page"><p>Checking authentication...</p></section>
+
+  if (notAuthenticated) {
+    const redirect = encodeURIComponent(window.location.pathname || '/admin/upload')
+    return (
+      <section className="admin-page admin-login-card">
+        <h1>Admin access required</h1>
+        <p style={{ color: '#6b6b6b' }}>You must sign in with Google to access the upload tools.</p>
+        <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '1.25rem' }}>
+          <a className="primary-btn" href={`${BACKEND_URL}/auth/google?redirect=${redirect}`}>Sign in with Google</a>
+          <a className="ghost-btn" href="/">Return to home</a>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="admin-page">
       <div className="admin-header">
         <h1>Upload Photos</h1>
-        <a className="ghost-btn" href="/admin">Back to dashboard</a>
+        <a className="ghost-btn" href={returnCategory ? `/gallery/${returnCategory}/${encodeURIComponent(profileId)}` : '/'}>
+          {returnCategory ? 'Back to project' : 'Back to home'}
+        </a>
       </div>
 
       <form className="admin-form" onSubmit={handleSubmit}>

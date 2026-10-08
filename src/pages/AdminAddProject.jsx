@@ -203,7 +203,7 @@ export default function AdminAddProject() {
   if (authChecking) return <section className="admin-page"><p>Checking authentication...</p></section>
 
   return (
-    <section className="admin-page admin-add-project">
+    <section className="admin-page admin-form-page">
       <div className="admin-header">
         <div>
           <h1>Add New {CATEGORY_LABELS[safeCategory] || 'Project'}</h1>

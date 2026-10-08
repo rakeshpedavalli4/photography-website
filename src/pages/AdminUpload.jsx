@@ -203,12 +203,12 @@ export default function AdminUpload() {
     }
   }
 
-  if (authChecking) return <section className="admin-page"><p>Checking authentication...</p></section>
+  if (authChecking) return <section className="admin-page admin-form-page"><p>Checking authentication...</p></section>
 
   if (notAuthenticated) {
     const redirect = encodeURIComponent(window.location.pathname || '/admin/upload')
     return (
-      <section className="admin-page admin-login-card">
+      <section className="admin-page admin-login-card admin-form-page">
         <h1>Admin access required</h1>
         <p style={{ color: '#6b6b6b' }}>You must sign in with Google to access the upload tools.</p>
         <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'center', marginTop: '1.25rem' }}>
@@ -220,7 +220,7 @@ export default function AdminUpload() {
   }
 
   return (
-    <section className="admin-page">
+    <section className="admin-page admin-form-page">
       <div className="admin-header">
         <h1>Upload Photos</h1>
         <a className="ghost-btn" href={returnCategory ? `/gallery/${returnCategory}/${encodeURIComponent(profileId)}` : '/'}>

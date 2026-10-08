@@ -1195,7 +1195,7 @@ a { color: inherit; }
   border: 1px solid #cfeedc;
 }
 
-.admin-add-project {
+.admin-form-page {
   max-width: 860px;
   margin: 2.5rem auto;
   padding: clamp(1.5rem, 4vw, 3rem);
@@ -1207,90 +1207,90 @@ a { color: inherit; }
   font-family: inherit;
 }
 
-.admin-add-project .admin-header {
+.admin-form-page .admin-header {
   border-color: var(--line);
 }
 
-.admin-add-project .admin-header h1 {
+.admin-form-page .admin-header h1 {
   color: var(--text);
 }
 
-.admin-add-project .admin-sub {
+.admin-form-page .admin-sub {
   color: var(--muted);
 }
 
-.admin-add-project .ghost-btn {
+.admin-form-page .ghost-btn {
   border-color: var(--line);
   color: var(--text);
 }
 
-.admin-add-project .ghost-btn:hover {
+.admin-form-page .ghost-btn:hover {
   border-color: var(--accent);
   color: var(--accent);
 }
 
-.admin-add-project .admin-form {
+.admin-form-page .admin-form {
   max-width: none;
   gap: 1.25rem;
 }
 
-.admin-add-project .admin-form label {
+.admin-form-page .admin-form label {
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
   color: var(--text);
 }
 
-.admin-add-project .admin-form input,
-.admin-add-project .admin-form textarea {
+.admin-form-page .admin-form input,
+.admin-form-page .admin-form textarea {
   border-color: var(--line);
   border-radius: 4px;
   background: var(--panel-soft);
   color: var(--text);
 }
 
-.admin-add-project .admin-form input::placeholder,
-.admin-add-project .admin-form textarea::placeholder {
+.admin-form-page .admin-form input::placeholder,
+.admin-form-page .admin-form textarea::placeholder {
   color: var(--muted);
 }
 
-.admin-add-project .admin-form input:focus,
-.admin-add-project .admin-form textarea:focus {
+.admin-form-page .admin-form input:focus,
+.admin-form-page .admin-form textarea:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px rgba(215, 196, 162, 0.12);
 }
 
-.admin-add-project .dropzone {
+.admin-form-page .dropzone {
   border-color: rgba(215, 196, 162, 0.45);
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.02);
 }
 
-.admin-add-project .dropzone.dragover {
+.admin-form-page .dropzone.dragover {
   border-color: var(--accent);
   background: rgba(215, 196, 162, 0.08);
   box-shadow: 0 0 0 2px rgba(215, 196, 162, 0.12);
 }
 
-.admin-add-project .dropzone-inner strong {
+.admin-form-page .dropzone-inner strong {
   color: var(--text);
 }
 
-.admin-add-project .dropzone-sub {
+.admin-form-page .dropzone-sub {
   color: var(--muted);
 }
 
-.admin-add-project .preview-thumb {
+.admin-form-page .preview-thumb {
   border-color: var(--line);
   border-radius: 4px;
   background: var(--panel-soft);
 }
 
-.admin-add-project .preview-name {
+.admin-form-page .preview-name {
   color: var(--text);
 }
 
-.admin-add-project .primary-btn {
+.admin-form-page .primary-btn {
   align-self: flex-start;
   border: 1px solid var(--accent);
   border-radius: 4px;
@@ -1302,12 +1302,12 @@ a { color: inherit; }
   text-transform: uppercase;
 }
 
-.admin-add-project .primary-btn:hover {
+.admin-form-page .primary-btn:hover {
   background: var(--accent-strong);
   color: #111;
 }
 
-.admin-add-project .primary-btn:disabled {
+.admin-form-page .primary-btn:disabled {
   cursor: wait;
   opacity: 0.65;
 }
@@ -1317,12 +1317,12 @@ a { color: inherit; }
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  .admin-add-project {
+  .admin-form-page {
     margin: 1.5rem 1rem;
     padding: 1.5rem 1rem;
   }
 
-  .admin-add-project .admin-header {
+  .admin-form-page .admin-header {
     flex-direction: column;
     align-items: flex-start;
   }

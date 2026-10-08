@@ -362,9 +362,10 @@ a { color: inherit; }
 }
 
 .photo {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  position: relative;
+  display: block;
+  min-width: 0;
+  margin: 0;
   background: var(--panel-soft);
   border: 1px solid var(--line);
   padding: 0.6rem;
@@ -372,12 +373,12 @@ a { color: inherit; }
   transition: transform 0.25s ease, border-color 0.25s ease;
 }
 
-@media (max-width: 900px) {
-
 .photo:hover {
   transform: translateY(-4px);
   border-color: rgba(215, 196, 162, 0.35);
 }
+
+.photo a {
   display: block;
 }
 

@@ -9,6 +9,7 @@ export default function AdminDashboard() {
   const [user, setUser] = useState(null)
   const [googleEnabled, setGoogleEnabled] = useState(true)
   const [loading, setLoading] = useState(true)
+  const isLocalhost = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
 
   useEffect(() => {
     Promise.all([
@@ -16,15 +17,39 @@ export default function AdminDashboard() {
       fetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' }).then((r) => r.json())
     ])
       .then(([config, userData]) => {
+        if (isLocalhost && !userData.user) {
+          setUser({
+            id: 'local-admin',
+            email: 'local-admin@localhost',
+            displayName: 'Local Admin'
+          })
+          setGoogleEnabled(false)
+          setLoading(false)
+          return
+        }
+
         setGoogleEnabled(Boolean(config.googleEnabled))
         setUser(userData.user || null)
       })
       .catch(() => {
+        if (isLocalhost) {
+          setGoogleEnabled(false)
+          setUser({
+            id: 'local-admin',
+            email: 'local-admin@localhost',
+            displayName: 'Local Admin'
+          })
+          setLoading(false)
+          return
+        }
+
         setGoogleEnabled(false)
         setUser(null)
       })
-      .finally(() => setLoading(false))
-  }, [])
+      .finally(() => {
+        if (!isLocalhost || user !== null) setLoading(false)
+      })
+  }, [isLocalhost])
 
   if (loading) return <section className="admin-page"><p>Loading admin...</p></section>
 

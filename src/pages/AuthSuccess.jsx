@@ -5,12 +5,7 @@ export default function AuthSuccess() {
   const navigate = useNavigate()
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const redirect = params.get('redirect') || '/'
-    // Only allow relative paths starting with '/'
-    const safe = (typeof redirect === 'string' && redirect.startsWith('/')) ? redirect : '/'
-    // Small delay to show success message, then navigate
-    const t = setTimeout(() => navigate(safe, { replace: true }), 600)
+    const t = setTimeout(() => navigate('/', { replace: true }), 600)
     return () => clearTimeout(t)
   }, [navigate])
 

@@ -42,6 +42,18 @@ function isPlaceholder(value) {
 }
 
 const GOOGLE_ENABLED = Boolean(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET && !isPlaceholder(GOOGLE_CLIENT_ID) && !isPlaceholder(GOOGLE_CLIENT_SECRET));
+const IS_LOCAL_DEV = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+const LOCAL_ADMIN_USER = {
+  id: 'local-admin',
+  email: 'local-admin@localhost',
+  displayName: 'Local Admin'
+};
+
+function applyLocalAdminBypass(req) {
+  if (!IS_LOCAL_DEV) return false;
+  if (!req.user) req.user = LOCAL_ADMIN_USER;
+  return true;
+}
 
 // Basic sanitizer to produce a filesystem-safe profile ID component
 function sanitizeProfileId(id) {
@@ -89,7 +101,13 @@ app.use(express.urlencoded({ extended: true }));
 app.use(helmet());
 app.use(rateLimit({ windowMs: 60 * 1000, max: 120 })); // limit to 120 requests per minute per IP
 
-app.use(session({ secret: SESSION_SECRET, resave: false, saveUninitialized: false, cookie: { secure: process.env.NODE_ENV === 'production', sameSite: 'lax' } }));
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+app.use(session({
+  secret: SESSION_SECRET,
+  resave: false,
+  saveUninitialized: false,
+  cookie: { secure: IS_PRODUCTION, sameSite: IS_PRODUCTION ? 'none' : 'lax' }
+}));
 app.use(passport.initialize());
 app.use(passport.session());
 
@@ -129,7 +147,7 @@ app.use(function (req, res, next) {
   } else if (!origin) {
     res.setHeader('Access-Control-Allow-Origin', FRONTEND_URL);
   }
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   if (req.method === 'OPTIONS') return res.sendStatus(200);
@@ -137,10 +155,13 @@ app.use(function (req, res, next) {
 });
 
 app.get('/api/auth/config', (req, res) => {
-  return res.json({ googleEnabled: GOOGLE_ENABLED, frontendUrl: FRONTEND_URL });
+  return res.json({ googleEnabled: IS_LOCAL_DEV ? false : GOOGLE_ENABLED, frontendUrl: FRONTEND_URL });
 });
 
 app.get('/api/auth/user', (req, res) => {
+  if (!req.user && IS_LOCAL_DEV) {
+    req.user = LOCAL_ADMIN_USER;
+  }
   if (!req.user) return res.json({ user: null });
   return res.json({ user: req.user });
 });
@@ -186,11 +207,13 @@ app.get('/api/profiles/:profileId', (req, res) => {
 });
 
 app.get('/api/admin/profiles', (req, res) => {
+  if (!req.user && IS_LOCAL_DEV) req.user = LOCAL_ADMIN_USER;
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   return res.json(readProfiles());
 });
 
 app.post('/api/admin/profiles', (req, res) => {
+  if (!req.user && IS_LOCAL_DEV) req.user = LOCAL_ADMIN_USER;
   if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
   const profile = req.body;
   if (!profile || !profile.id || !profile.name) return res.status(400).json({ error: 'Invalid profile payload' });
@@ -207,9 +230,30 @@ const multer = require('multer');
 
 // Simple middleware to ensure the user is authenticated via passport session
 function ensureAuthenticated(req, res, next) {
+  if (!req.user && IS_LOCAL_DEV) req.user = LOCAL_ADMIN_USER;
   if (req.user) return next();
   return res.status(401).json({ error: 'Unauthorized' });
 }
+
+app.delete('/api/admin/profiles/:profileId', ensureAuthenticated, (req, res) => {
+  const profileId = sanitizeProfileId(req.params.profileId || '');
+  if (!profileId) return res.status(400).json({ error: 'Invalid profile ID' });
+
+  const uploadsRoot = path.resolve(UPLOADS_ROOT);
+  const profileDirectory = path.resolve(uploadsRoot, profileId);
+  if (!profileDirectory.startsWith(`${uploadsRoot}${path.sep}`)) {
+    return res.status(400).json({ error: 'Invalid profile path' });
+  }
+
+  const profiles = readProfiles();
+  const profileIndex = profiles.findIndex((profile) => sanitizeProfileId(profile.id) === profileId);
+  if (profileIndex === -1) return res.status(404).json({ error: 'Profile not found' });
+
+  profiles.splice(profileIndex, 1);
+  writeProfiles(profiles);
+  fs.rmSync(profileDirectory, { recursive: true, force: true });
+  return res.json({ ok: true });
+});
 
 // Serve uploaded files from the /uploads folder only to authenticated users
 const UPLOADS_ROOT = path.join(__dirname, '..', 'uploads');

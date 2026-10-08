@@ -1,8 +1,20 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+
+const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
+  ? 'http://localhost:4000'
+  : 'https://backend-we97.onrender.com'
 
 export default function Layout({ children }) {
   const location = useLocation()
+  const [isAdmin, setIsAdmin] = useState(false)
+
+  useEffect(() => {
+    fetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' })
+      .then((response) => response.json())
+      .then((data) => setIsAdmin(Boolean(data.user)))
+      .catch(() => setIsAdmin(false))
+  }, [])
 
   return (
     <div className="app">
@@ -15,6 +27,7 @@ export default function Layout({ children }) {
             <li><Link to="/" className={location.pathname === '/' ? 'active' : ''}>Home</Link></li>
             <li><Link to="/contact" className={location.pathname === '/contact' ? 'active' : ''}>Contact</Link></li>
           </ul>
+          {isAdmin && <div className="admin-status">You are an admin</div>}
         </nav>
       </header>
 

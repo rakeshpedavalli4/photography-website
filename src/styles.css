@@ -36,6 +36,7 @@ a { color: inherit; }
 }
 
 .navbar {
+  position: relative;
   max-width: 1200px;
   margin: 0 auto;
   padding: 1rem 1.25rem;
@@ -58,11 +59,21 @@ a { color: inherit; }
 }
 
 .nav-links {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   list-style: none;
   display: flex;
   gap: 2rem;
   margin: 0;
   padding: 0;
+}
+
+@media (max-width: 900px) {
+  .nav-links {
+    position: static;
+    transform: none;
+  }
 }
 
 .nav-links a {
@@ -351,6 +362,9 @@ a { color: inherit; }
 }
 
 .photo {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   background: var(--panel-soft);
   border: 1px solid var(--line);
   padding: 0.6rem;
@@ -358,12 +372,12 @@ a { color: inherit; }
   transition: transform 0.25s ease, border-color 0.25s ease;
 }
 
+@media (max-width: 900px) {
+
 .photo:hover {
   transform: translateY(-4px);
   border-color: rgba(215, 196, 162, 0.35);
 }
-
-.photo a {
   display: block;
 }
 

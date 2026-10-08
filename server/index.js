@@ -304,6 +304,23 @@ function ensureAuthenticated(req, res, next) {
   return res.status(401).json({ error: 'Unauthorized' });
 }
 
+app.post('/api/admin/profiles/:profileId/cover', ensureAuthenticated, (req, res) => {
+  const profileId = sanitizeProfileId(req.params.profileId || '');
+  const imagePath = req.body && req.body.imagePath;
+  const profiles = readProfiles();
+  const profile = profiles.find((item) => sanitizeProfileId(item.id) === profileId);
+
+  if (!profile) return res.status(404).json({ error: 'Profile not found' });
+  if (typeof imagePath !== 'string' || !(profile.images || []).some((image) => image.path === imagePath)) {
+    return res.status(400).json({ error: 'Cover photo must be one of this project’s images' });
+  }
+
+  profile.coverImage = imagePath;
+  writeProfiles(profiles);
+  logEvent('admin.profile.cover_updated', { category: profile.category });
+  return res.json({ ok: true, coverImage: profile.coverImage });
+});
+
 app.delete('/api/admin/profiles/:profileId', ensureAuthenticated, (req, res) => {
   const profileId = sanitizeProfileId(req.params.profileId || '');
   if (!profileId) return res.status(400).json({ error: 'Invalid profile ID' });

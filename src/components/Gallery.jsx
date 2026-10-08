@@ -1,6 +1,6 @@
 import React from 'react'
 
-export default function Gallery({ items = [] }) {
+export default function Gallery({ items = [], draggableImages = false, onImageDragStart }) {
   return (
     <div className="gallery">
       {items.map((it, idx) => {
@@ -9,7 +9,14 @@ export default function Gallery({ items = [] }) {
         return (
           <figure key={idx} className="photo">
             <a href={src} target="_blank" rel="noreferrer">
-              <img src={src} alt={title} decoding="async" loading="lazy" />
+              <img
+                src={src}
+                alt={title}
+                decoding="async"
+                loading="lazy"
+                draggable={draggableImages}
+                onDragStart={draggableImages ? (event) => onImageDragStart?.(event, it) : undefined}
+              />
             </a>
             <figcaption>{title}</figcaption>
           </figure>

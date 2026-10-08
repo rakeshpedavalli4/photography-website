@@ -11,6 +11,9 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
   const [isAdmin, setIsAdmin] = useState(false)
+  const [isCoverDragActive, setIsCoverDragActive] = useState(false)
+  const [coverSaving, setCoverSaving] = useState(false)
+  const [coverMessage, setCoverMessage] = useState('')
 
   useEffect(() => {
     let mounted = true
@@ -65,6 +68,40 @@ export default function ProfilePage() {
       })
   }, [category, profileId])
 
+  const handleImageDragStart = (event, image) => {
+    event.dataTransfer.effectAllowed = 'copy'
+    event.dataTransfer.setData('text/plain', image.path)
+  }
+
+  const handleCoverDrop = async (event) => {
+    event.preventDefault()
+    setIsCoverDragActive(false)
+    const imagePath = event.dataTransfer.getData('text/plain')
+    if (!profile?.images?.some((image) => image.path === imagePath)) {
+      setCoverMessage('Drag a photo from this project to set it as the cover.')
+      return
+    }
+
+    setCoverSaving(true)
+    setCoverMessage('')
+    try {
+      const response = await fetch(`${BACKEND_URL}/api/admin/profiles/${encodeURIComponent(profile.id)}/cover`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ imagePath })
+      })
+      if (!response.ok) throw new Error('Could not update the cover photo.')
+      setProfile((current) => current ? { ...current, coverImage: imagePath } : current)
+      setCoverMessage('Cover photo updated.')
+    } catch (error) {
+      console.error('[profile] cover update failed', { category, errorName: error.name })
+      setCoverMessage(error.message || 'Could not update the cover photo.')
+    } finally {
+      setCoverSaving(false)
+    }
+  }
+
   if (loading) return <section className="profile-page"><p>Loading profile...</p></section>
   if (!profile) return <section className="profile-page"><p>Profile not found.</p></section>
 
@@ -86,9 +123,27 @@ export default function ProfilePage() {
         )}
       </div>
 
+      {isAdmin && (
+        <div
+          className={`profile-cover-dropzone ${isCoverDragActive ? 'dragover' : ''} ${coverSaving ? 'saving' : ''}`}
+          onDragOver={(event) => {
+            event.preventDefault()
+            event.dataTransfer.dropEffect = 'copy'
+            setIsCoverDragActive(true)
+          }}
+          onDragLeave={() => setIsCoverDragActive(false)}
+          onDrop={handleCoverDrop}
+          aria-live="polite"
+        >
+          {profile.coverImage && <img src={profile.coverImage} alt="Current project cover" />}
+          <span>{coverSaving ? 'Saving cover photo...' : 'Drop a photo here to set it as the project cover'}</span>
+          {coverMessage && <span className="profile-cover-message" role="status">{coverMessage}</span>}
+        </div>
+      )}
+
       <div className="profile-gallery-wrap">
         {profile.images && profile.images.length ? (
-          <Gallery items={profile.images} />
+          <Gallery items={profile.images} draggableImages={isAdmin} onImageDragStart={handleImageDragStart} />
         ) : (
           <p>No photos available for this profile yet.</p>
         )}

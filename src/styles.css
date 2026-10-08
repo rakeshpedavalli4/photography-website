@@ -610,8 +610,16 @@ a { color: inherit; }
 }
 
 .profile-gallery-wrap .gallery {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.5rem;
+  display: block;
+  columns: 2;
+  column-gap: 1.5rem;
+}
+
+.profile-gallery-wrap .photo {
+  display: inline-block;
+  width: 100%;
+  margin: 0 0 1.5rem;
+  break-inside: avoid;
 }
 
 /* Contact Page */
@@ -1328,7 +1336,7 @@ a { color: inherit; }
   }
 
   .profile-gallery-wrap .gallery {
-    grid-template-columns: 1fr;
+    columns: 1;
   }
 
   .navbar {

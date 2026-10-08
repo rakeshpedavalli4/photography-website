@@ -535,6 +535,11 @@ a { color: inherit; }
   padding-top: 0.5rem;
 }
 
+.profile-gallery-wrap .gallery {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
 /* Contact Page */
 .contact {
   padding: 4rem 1.25rem;
@@ -1188,6 +1193,10 @@ a { color: inherit; }
   .admin-add-project .admin-header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .profile-gallery-wrap .gallery {
+    grid-template-columns: 1fr;
   }
 
   .navbar {

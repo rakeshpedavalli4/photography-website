@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
 const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
@@ -15,6 +15,7 @@ const CATEGORY_LABELS = {
 export default function AdminAddProject() {
   const { category } = useParams()
   const navigate = useNavigate()
+  const fileInputRef = useRef(null)
   const safeCategory = category || 'portraits'
 
   const [authChecking, setAuthChecking] = useState(true)
@@ -103,6 +104,11 @@ export default function AdminAddProject() {
     if (event.dataTransfer && event.dataTransfer.files) {
       await handleFiles(event.dataTransfer.files)
     }
+  }
+
+  const handleFileInput = (event) => {
+    if (event.currentTarget.files) handleFiles(event.currentTarget.files)
+    event.currentTarget.value = ''
   }
 
   const handleSubmit = async (event) => {
@@ -226,30 +232,45 @@ export default function AdminAddProject() {
           <div className="dropzone-inner">
             <strong>Drag & drop images here</strong>
             <div className="dropzone-sub">or paste image URLs below (one per line)</div>
+            <input
+              ref={fileInputRef}
+              className="dropzone-file-input"
+              type="file"
+              accept="image/*"
+              multiple
+              onChange={handleFileInput}
+              aria-label="Choose photos"
+            />
+            <button className="ghost-btn" type="button" onClick={() => fileInputRef.current?.click()}>
+              Choose photos
+            </button>
           </div>
         </div>
 
         {droppedImages.length > 0 && (
-          <div className="preview-grid">
-            {droppedImages.map((image, index) => (
-              <div className={`preview-thumb ${image.id === coverImageId ? 'is-cover' : ''}`} key={image.id}>
-                <button
-                  className="preview-cover-choice"
-                  type="button"
-                  aria-pressed={image.id === coverImageId}
-                  aria-label={image.id === coverImageId ? `${image.name} is the cover photo` : `Make ${image.name} the cover photo`}
-                  onClick={() => setCoverImageId(image.id)}
-                >
-                  <img src={image.dataUrl} alt={image.name} />
-                  <span className="preview-cover-label">{image.id === coverImageId ? 'Cover photo' : 'Set as cover'}</span>
-                </button>
-                <div className="preview-meta">
-                  <div className="preview-name">{image.name}</div>
-                  <button type="button" className="ghost-btn small" onClick={() => removeDroppedImage(index)}>Remove</button>
+          <>
+            <p className="preview-count">{droppedImages.length} photos selected</p>
+            <div className="preview-grid">
+              {droppedImages.map((image, index) => (
+                <div className={`preview-thumb ${image.id === coverImageId ? 'is-cover' : ''}`} key={image.id}>
+                  <button
+                    className="preview-cover-choice"
+                    type="button"
+                    aria-pressed={image.id === coverImageId}
+                    aria-label={image.id === coverImageId ? `${image.name} is the cover photo` : `Make ${image.name} the cover photo`}
+                    onClick={() => setCoverImageId(image.id)}
+                  >
+                    <img src={image.dataUrl} alt={image.name} />
+                    <span className="preview-cover-label">{image.id === coverImageId ? 'Cover photo' : 'Set as cover'}</span>
+                  </button>
+                  <div className="preview-meta">
+                    <div className="preview-name">{image.name}</div>
+                    <button type="button" className="ghost-btn small" onClick={() => removeDroppedImage(index)}>Remove</button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         )}
 
         <label>

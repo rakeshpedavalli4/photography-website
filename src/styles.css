@@ -1041,6 +1041,26 @@ a { color: inherit; }
   margin-top: 0.35rem;
 }
 
+.dropzone-file-input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  clip-path: inset(50%);
+}
+
+.dropzone .ghost-btn {
+  margin-top: 1rem;
+}
+
+.preview-count {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
 .preview-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));

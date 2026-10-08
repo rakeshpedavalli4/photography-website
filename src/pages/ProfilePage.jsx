@@ -77,7 +77,7 @@ export default function ProfilePage() {
         {isAdmin && (
           <div className="profile-header-actions">
             <Link
-              className="primary-btn"
+              className="primary-btn profile-add-photos-btn"
               to={`/admin/upload?profileId=${encodeURIComponent(profile.id)}&category=${encodeURIComponent(category)}`}
             >
               Add photos

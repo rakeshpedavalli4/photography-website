@@ -346,6 +346,7 @@ a { color: inherit; }
 .gallery {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  align-items: start;
   gap: 1.25rem;
 }
 
@@ -368,9 +369,10 @@ a { color: inherit; }
 
 .photo img {
   width: 100%;
+  height: auto;
   display: block;
-  aspect-ratio: 4 / 5;
-  object-fit: cover;
+  aspect-ratio: auto;
+  object-fit: contain;
   filter: grayscale(0.15) contrast(1.06);
 }
 

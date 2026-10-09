@@ -2,9 +2,7 @@ import React, { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Gallery from '../components/Gallery'
 
-const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-  ? 'http://localhost:4000'
-  : 'https://backend-we97.onrender.com'
+import { BACKEND_URL, apiFetch } from '../api'
 
 export default function ProfilePage() {
   const { category, profileId } = useParams()
@@ -41,7 +39,7 @@ export default function ProfilePage() {
   useEffect(() => {
     let mounted = true
     console.info('[profile] admin session check started', { category })
-    fetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' })
+    apiFetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' })
       .then(async (response) => {
         if (!response.ok) throw new Error('Session request failed')
         return response.json()
@@ -60,7 +58,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     console.info('[profile] load started', { category })
-    fetch(`${BACKEND_URL}/api/profiles/${encodeURIComponent(profileId)}`)
+    apiFetch(`${BACKEND_URL}/api/profiles/${encodeURIComponent(profileId)}`)
       .then(async (response) => {
         console.info('[profile] response received', { category, status: response.status })
         if (response.ok) {
@@ -70,7 +68,7 @@ export default function ProfilePage() {
         if (response.status !== 404 && response.status !== 405) return null
 
         console.warn('[profile] detail route unavailable; falling back to category list', { category })
-        const listResponse = await fetch(`${BACKEND_URL}/api/profiles?category=${encodeURIComponent(category)}`)
+        const listResponse = await apiFetch(`${BACKEND_URL}/api/profiles?category=${encodeURIComponent(category)}`)
         console.info('[profile] fallback list response received', { category, status: listResponse.status })
         if (!listResponse.ok) return null
         const listPayload = await listResponse.json()
@@ -97,7 +95,7 @@ export default function ProfilePage() {
     setCoverMessage('')
     setCoverMessageType('')
     try {
-      const response = await fetch(`${BACKEND_URL}/api/admin/profiles/${encodeURIComponent(profile.id)}/cover`, {
+      const response = await apiFetch(`${BACKEND_URL}/api/admin/profiles/${encodeURIComponent(profile.id)}/cover`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },

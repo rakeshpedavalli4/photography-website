@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
-const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-  ? 'http://localhost:4000'
-  : 'https://backend-we97.onrender.com'
+import { BACKEND_URL, apiFetch } from '../api'
 
 export default function AdminDashboard() {
   const [user, setUser] = useState(null)
@@ -13,8 +11,8 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     Promise.all([
-      fetch(`${BACKEND_URL}/api/auth/config`, { credentials: 'include' }).then((r) => r.json()),
-      fetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' }).then((r) => r.json())
+      apiFetch(`${BACKEND_URL}/api/auth/config`, { credentials: 'include' }).then((r) => r.json()),
+      apiFetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' }).then((r) => r.json())
     ])
       .then(([config, userData]) => {
         if (isLocalhost && !userData.user) {
@@ -85,7 +83,7 @@ export default function AdminDashboard() {
           <button
             className="ghost-btn"
             onClick={() => {
-              fetch(`${BACKEND_URL}/api/auth/logout`, { method: 'POST', credentials: 'include' })
+              apiFetch(`${BACKEND_URL}/api/auth/logout`, { method: 'POST', credentials: 'include' })
                 .then(() => window.location.href = '/')
             }}
           >

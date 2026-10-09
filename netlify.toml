@@ -3,8 +3,17 @@
   publish = "dist"
 
 [build.environment]
-  SECRETS_SCAN_OMIT_KEYS = "VITE_EMAILJS_PUBLIC_KEY,VITE_EMAILJS_SERVICE_ID,VITE_EMAILJS_TEMPLATE_ID,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,GOOGLE_CALLBACK_URL,GOOGLE_ALLOWED_EMAILS,SESSION_SECRET,NAS_BASE_URL,NAS_USER,NAS_PASS,IMAGE_LIST_URL,PORT"
-  SECRETS_SCAN_OMIT_PATHS = ".env.example,.env.local,README.md"
+  NODE_VERSION = "24"
+  SECRETS_SCAN_OMIT_KEYS = "VITE_EMAILJS_PUBLIC_KEY,VITE_EMAILJS_SERVICE_ID,VITE_EMAILJS_TEMPLATE_ID,VITE_BACKEND_URL"
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:; connect-src 'self' https:; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'"
 
 [[redirects]]
   from = "/*"

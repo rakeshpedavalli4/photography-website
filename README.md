@@ -1,5 +1,7 @@
 Photography site (starter scaffold)
 
+Production deployment and security configuration: see [SECURITY_SETUP.md](SECURITY_SETUP.md). Netlify hosts the frontend; Render hosts the Express API. Configure private backend variables on Render, not Netlify. Node 24 is recommended.
+
 This repository contains a starter PWA (Vite + React) front-end and a small Express-based image proxy server to serve images from your NAS without re-encoding them (preserving clarity and embedded color profiles).
 
 Highlights / Goals
@@ -32,14 +34,14 @@ The admin area is protected by Google sign-in and only allows configured emails.
 1. Create a Google OAuth 2.0 Client ID in Google Cloud Console.
 2. Add the redirect URI:
    http://localhost:4000/auth/google/callback
-3. Set the following env vars using local-only values in `.env.local` or Netlify site settings:
+3. Set the following env vars using local-only values in `.env.local` or Render environment settings (not Netlify):
    GOOGLE_CLIENT_ID=replace-with-google-client-id
    GOOGLE_CLIENT_SECRET=replace-with-google-client-secret
    GOOGLE_CALLBACK_URL=http://localhost:4000/auth/google/callback
    GOOGLE_ALLOWED_EMAILS=your-email@example.com
-   SESSION_SECRET=replace-with-long-random-secret
+   SESSION_SECRET=<a freshly generated random secret of at least 32 characters>
 4. Restart the app and visit /admin.
-5. The public site remains public; only /admin and admin APIs are protected.
+5. The public site remains public; admin APIs require an explicitly allowed Google account, including during local development. Production also requires HTTPS frontend/backend/callback URLs; see SECURITY_SETUP.md.
 
 Next steps (optional)
 - Connect to your NAS via an S3-compatible gateway (MinIO or rclone serve s3) for robust access and better tooling.
@@ -54,7 +56,7 @@ Netlify env safety
 - Real secrets such as `GOOGLE_CLIENT_SECRET`, `NAS_PASS`, and `SESSION_SECRET` must stay server-side and must never use the `VITE_` prefix.
 - If Netlify flags the EmailJS variables as possible secrets, add this to site settings to suppress the false positive:
   `SECRETS_SCAN_OMIT_KEYS=VITE_EMAILJS_PUBLIC_KEY,VITE_EMAILJS_SERVICE_ID,VITE_EMAILJS_TEMPLATE_ID`
-- Keep `.env` and `.env.local` out of version control; use Netlify environment variables or local-only files ignored by git.
+- Keep `.env` and `.env.local` out of version control. Use Netlify variables only for public frontend values, Render variables for backend secrets, and ignored local files for development.
 
 Files created
 - server/index.js: tiny Express proxy server

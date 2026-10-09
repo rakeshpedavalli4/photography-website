@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 
-const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-  ? 'http://localhost:4000'
-  : 'https://backend-we97.onrender.com'
+import { BACKEND_URL, apiFetch } from '../api'
 
 export default function Layout({ children }) {
   const location = useLocation()
@@ -12,7 +10,7 @@ export default function Layout({ children }) {
 
   useEffect(() => {
     console.info('[auth] session check started')
-    fetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' })
+    apiFetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' })
       .then((response) => {
         console.info('[auth] session response received', { status: response.status })
         if (!response.ok) throw new Error('Session request failed')
@@ -32,7 +30,7 @@ export default function Layout({ children }) {
   const handleLogout = async () => {
     setLoggingOut(true)
     try {
-      const response = await fetch(`${BACKEND_URL}/api/auth/logout`, {
+      const response = await apiFetch(`${BACKEND_URL}/api/auth/logout`, {
         method: 'POST',
         credentials: 'include'
       })

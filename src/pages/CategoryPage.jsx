@@ -2,9 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import Gallery from '../components/Gallery'
 
-const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-  ? 'http://localhost:4000'
-  : 'https://backend-we97.onrender.com'
+import { BACKEND_URL, apiFetch } from '../api'
 
 export default function CategoryPage({ category }) {
   const [images, setImages] = useState([])
@@ -25,7 +23,7 @@ export default function CategoryPage({ category }) {
     let mounted = true
 
     console.info('[gallery] session check started', { category })
-    fetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' })
+    apiFetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' })
       .then((response) => {
         console.info('[gallery] session response received', { category, status: response.status })
         if (!response.ok) throw new Error('Session request failed')
@@ -45,7 +43,7 @@ export default function CategoryPage({ category }) {
     const profilesUrl = category
       ? `${BACKEND_URL}/api/profiles?category=${encodeURIComponent(category)}`
       : `${BACKEND_URL}/api/profiles`
-    fetch(profilesUrl)
+    apiFetch(profilesUrl)
       .then(async (response) => {
         console.info('[gallery] project response received', { category, status: response.status })
         if (!response.ok) throw new Error('Could not load projects.')
@@ -71,7 +69,7 @@ export default function CategoryPage({ category }) {
         const imagesUrl = category
           ? `${BACKEND_URL}/api/images?category=${encodeURIComponent(category)}`
           : `${BACKEND_URL}/api/images`
-        return fetch(imagesUrl)
+        return apiFetch(imagesUrl)
           .then(async (imageResponse) => {
             console.info('[gallery] fallback image response received', { category, status: imageResponse.status })
             if (imageResponse.status === 404) return []
@@ -113,7 +111,7 @@ export default function CategoryPage({ category }) {
     setDeletingProfile(profile.id)
     setDeleteError('')
     try {
-      const response = await fetch(`${BACKEND_URL}/api/admin/profiles/${encodeURIComponent(profile.id)}`, {
+      const response = await apiFetch(`${BACKEND_URL}/api/admin/profiles/${encodeURIComponent(profile.id)}`, {
         method: 'DELETE',
         credentials: 'include'
       })

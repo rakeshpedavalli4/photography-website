@@ -1,11 +1,12 @@
-/* Minimal image proxy server
-   - Streams files from NAS_BASE_URL and preserves original bytes (no re-encoding)
-   - Use .env to set NAS_BASE_URL, NAS_USER, NAS_PASS
-   - Caution: in production put authentication and rate-limiting in front of this server
+/* Public photography API with authenticated admin mutations.
+   Private runtime configuration belongs on the backend host; see SECURITY_SETUP.md.
 */
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('node:crypto');
+const { pipeline } = require('node:stream');
+const { isPlaceholder, allowedImageUrl, nasImageUrl, csrfProtection } = require('./security');
 const envLocalPath = path.resolve(__dirname, '..', '.env.local');
 const envPath = path.resolve(__dirname, '..', '.env');
 const envFile = fs.existsSync(envLocalPath) ? envLocalPath : envPath;
@@ -13,6 +14,8 @@ require('dotenv').config({ path: envFile });
 
 const express = require('express');
 const session = require('express-session');
+const FileStore = require('session-file-store')(session);
+const sharp = require('sharp');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const fetch = require('node-fetch');
@@ -34,14 +37,24 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const GOOGLE_CALLBACK_URL = process.env.GOOGLE_CALLBACK_URL || 'http://localhost:4000/auth/google/callback';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 const BACKEND_URL_ENV = process.env.BACKEND_URL || '';
-const SESSION_SECRET = process.env.SESSION_SECRET || 'change-me';
+const SESSION_SECRET = process.env.SESSION_SECRET;
 const SESSION_COOKIE_NAME = 'connect.sid';
 const ALLOWED_EMAILS = (process.env.GOOGLE_ALLOWED_EMAILS || '').split(',').map((email) => email.trim().toLowerCase()).filter(Boolean);
 
-function isPlaceholder(value) {
-  if (!value || typeof value !== 'string') return true;
-  return ['your-google-client-id', 'your-google-client-secret', 'your-email@gmail.com', 'change-this-secret', 'your-nas-username', 'your-nas-password'].includes(value.trim().toLowerCase());
+if (isPlaceholder(SESSION_SECRET) || SESSION_SECRET.length < 32) {
+  throw new Error('Set SESSION_SECRET to a random secret of at least 32 characters on the backend host.');
 }
+if (IS_PRODUCTION) {
+  for (const key of ['FRONTEND_URL', 'BACKEND_URL', 'GOOGLE_CALLBACK_URL']) {
+    const url = new URL(process.env[key] || 'invalid');
+    if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) throw new Error(`${key} must be an HTTPS URL`);
+    if (key !== 'GOOGLE_CALLBACK_URL' && url.pathname !== '/') throw new Error(`${key} must be an origin without a path`);
+  }
+  for (const value of [NAS_BASE, IMAGE_LIST_URL].filter(Boolean)) {
+    if (new URL(value).protocol !== 'https:') throw new Error('Production NAS and image-list URLs must use HTTPS');
+  }
+}
+const ALLOWED_ORIGINS = [new URL(FRONTEND_URL).origin];
 
 function logEvent(event, details = {}, level = 'info') {
   console[level](JSON.stringify({ timestamp: new Date().toISOString(), event, ...details }));
@@ -57,17 +70,8 @@ function getLogRoute(pathname) {
 }
 
 const GOOGLE_ENABLED = Boolean(GOOGLE_CLIENT_ID && GOOGLE_CLIENT_SECRET && !isPlaceholder(GOOGLE_CLIENT_ID) && !isPlaceholder(GOOGLE_CLIENT_SECRET));
-const IS_LOCAL_DEV = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
-const LOCAL_ADMIN_USER = {
-  id: 'local-admin',
-  email: 'local-admin@localhost',
-  displayName: 'Local Admin'
-};
-
-function applyLocalAdminBypass(req) {
-  if (!IS_LOCAL_DEV) return false;
-  if (!req.user) req.user = LOCAL_ADMIN_USER;
-  return true;
+if ((IS_PRODUCTION || GOOGLE_ENABLED) && (!GOOGLE_ENABLED || !ALLOWED_EMAILS.length || ALLOWED_EMAILS.some(isPlaceholder))) {
+  throw new Error('Configure Google OAuth credentials and a nonempty GOOGLE_ALLOWED_EMAILS on the backend host.');
 }
 
 // Basic sanitizer to produce a filesystem-safe profile ID component
@@ -75,7 +79,7 @@ function sanitizeProfileId(id) {
   return String(id || '').replace(/[^A-Za-z0-9_-]/g, '').toLowerCase();
 }
 
-const DATA_DIR = path.join(__dirname, '..', 'data');
+const DATA_DIR = path.resolve(process.env.DATA_DIR || path.join(__dirname, '..', 'data'));
 const PROFILE_FILE = path.join(DATA_DIR, 'profiles.json');
 fs.mkdirSync(DATA_DIR, { recursive: true });
 
@@ -110,8 +114,6 @@ function writeProfiles(profiles) {
   fs.writeFileSync(PROFILE_FILE, JSON.stringify({ profiles }, null, 2));
 }
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 // Basic security headers and rate limiting
 app.use(helmet());
 app.use(rateLimit({ windowMs: 60 * 1000, max: 120 })); // limit to 120 requests per minute per IP
@@ -131,12 +133,21 @@ app.use((req, res, next) => {
   next();
 });
 
+const sessionStore = new FileStore({
+  path: path.join(DATA_DIR, 'sessions'),
+  secret: SESSION_SECRET,
+  ttl: 8 * 60 * 60,
+  retries: 0,
+  reapInterval: process.env.NODE_ENV === 'test' ? -1 : 3600,
+  logFn: () => logEvent('session.store.error', {}, 'error')
+});
 app.use(session({
   name: SESSION_COOKIE_NAME,
+  store: sessionStore,
   secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: IS_PRODUCTION, sameSite: IS_PRODUCTION ? 'none' : 'lax' }
+  cookie: { httpOnly: true, secure: IS_PRODUCTION, sameSite: IS_PRODUCTION ? 'none' : 'lax', maxAge: 8 * 60 * 60 * 1000 }
 }));
 app.use(passport.initialize());
 app.use(passport.session());
@@ -145,10 +156,11 @@ if (GOOGLE_ENABLED) {
   passport.use(new GoogleStrategy({
     clientID: GOOGLE_CLIENT_ID,
     clientSecret: GOOGLE_CLIENT_SECRET,
-    callbackURL: GOOGLE_CALLBACK_URL
+    callbackURL: GOOGLE_CALLBACK_URL,
+    state: true
   }, (accessToken, refreshToken, profile, done) => {
     const email = profile.emails && profile.emails[0] ? profile.emails[0].value.toLowerCase() : '';
-    if (ALLOWED_EMAILS.length && !ALLOWED_EMAILS.includes(email)) {
+    if (!ALLOWED_EMAILS.includes(email) || profile._json?.email_verified !== true) {
       logEvent('auth.oauth.rejected', { reason: 'email_not_allowed' }, 'warn');
       return done(null, false, { message: 'Email not allowed' });
     }
@@ -162,7 +174,7 @@ if (GOOGLE_ENABLED) {
   }));
 
   passport.serializeUser((user, done) => done(null, user));
-  passport.deserializeUser((user, done) => done(null, user));
+  passport.deserializeUser((user, done) => done(null, ALLOWED_EMAILS.includes(user.email) ? user : false));
 } else {
   console.warn('Google OAuth is disabled because the local credentials are still placeholders. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to real values.');
 }
@@ -172,29 +184,36 @@ if (!NAS_BASE && !IMAGE_LIST_URL) {
 }
 
 app.use(function (req, res, next) {
-  const allowedOrigins = [FRONTEND_URL, 'http://localhost:5173'];
   const origin = req.headers.origin;
-  if (origin && allowedOrigins.includes(origin)) {
+  res.vary('Origin');
+  if (origin && ALLOWED_ORIGINS.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   } else if (!origin) {
     res.setHeader('Access-Control-Allow-Origin', FRONTEND_URL);
   }
   res.setHeader('Access-Control-Allow-Methods', 'GET,POST,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,X-CSRF-Token');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
   if (req.method === 'OPTIONS') return res.sendStatus(200);
   next();
 });
 
+app.use('/api', (req, res, next) => {
+  if (req.path.startsWith('/auth') || req.path.startsWith('/admin')) res.set('Cache-Control', 'no-store');
+  next();
+});
+app.use('/api', csrfProtection(ALLOWED_ORIGINS));
+app.use(express.json({ limit: '100kb' }));
+app.get('/api/auth/csrf', (req, res) => {
+  if (!req.session.csrfToken) req.session.csrfToken = crypto.randomBytes(32).toString('hex');
+  res.json({ csrfToken: req.session.csrfToken });
+});
+
 app.get('/api/auth/config', (req, res) => {
-  logEvent('auth.config.read', { googleEnabled: IS_LOCAL_DEV ? false : GOOGLE_ENABLED });
-  return res.json({ googleEnabled: IS_LOCAL_DEV ? false : GOOGLE_ENABLED, frontendUrl: FRONTEND_URL });
+  return res.json({ googleEnabled: GOOGLE_ENABLED, frontendUrl: FRONTEND_URL });
 });
 
 app.get('/api/auth/user', (req, res) => {
-  if (!req.user && IS_LOCAL_DEV) {
-    req.user = LOCAL_ADMIN_USER;
-  }
   logEvent('auth.session.checked', { authenticated: Boolean(req.user) });
   if (!req.user) return res.json({ user: null });
   return res.json({ user: req.user });
@@ -244,7 +263,7 @@ if (GOOGLE_ENABLED) {
     const redirectPath = req.session.redirectTo || '/admin/upload';
     delete req.session.redirectTo;
     // Ensure redirect is relative (prevent open redirect). Only allow paths starting with '/'.
-    const safePath = (typeof redirectPath === 'string' && redirectPath.startsWith('/')) ? redirectPath : '/admin/upload';
+    const safePath = (typeof redirectPath === 'string' && /^\/(?!\/)/.test(redirectPath) && !/[\\\r\n]/.test(redirectPath)) ? redirectPath : '/admin/upload';
     // Redirect to frontend success page with the intended path encoded
     res.redirect(`${FRONTEND_URL.replace(/\/$/, '')}/auth/success?redirect=${encodeURIComponent(safePath)}`);
   });
@@ -272,24 +291,26 @@ app.get('/api/profiles/:profileId', (req, res) => {
   return res.json(profile);
 });
 
-app.get('/api/admin/profiles', (req, res) => {
-  if (!req.user && IS_LOCAL_DEV) req.user = LOCAL_ADMIN_USER;
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+app.get('/api/admin/profiles', ensureAuthenticated, (req, res) => {
   const profiles = readProfiles();
   logEvent('admin.profiles.listed', { count: profiles.length });
   return res.json(profiles);
 });
 
-app.post('/api/admin/profiles', (req, res) => {
-  if (!req.user && IS_LOCAL_DEV) req.user = LOCAL_ADMIN_USER;
-  if (!req.user) return res.status(401).json({ error: 'Unauthorized' });
+app.post('/api/admin/profiles', ensureAuthenticated, (req, res) => {
   const profile = req.body;
-  if (!profile || !profile.id || !profile.name) return res.status(400).json({ error: 'Invalid profile payload' });
+  if (!profile || typeof profile.id !== 'string' || !/^[a-z0-9_-]{1,100}$/.test(profile.id) ||
+      typeof profile.name !== 'string' || !profile.name.trim() || profile.name.length > 200 ||
+      !['portraits', 'landscapes', 'events', 'nature'].includes(profile.category) ||
+      typeof profile.description !== 'string' || profile.description.length > 5000 ||
+      !Array.isArray(profile.images) || profile.images.length || profile.coverImage) {
+    return res.status(400).json({ error: 'Invalid project. Add photos through the upload endpoint.' });
+  }
 
   const profiles = readProfiles();
   const existingIndex = profiles.findIndex((item) => item.id === profile.id);
-  if (existingIndex > -1) profiles[existingIndex] = profile;
-  else profiles.push(profile);
+  if (existingIndex > -1) return res.status(409).json({ error: 'A project with this ID already exists' });
+  profiles.push({ id: profile.id, name: profile.name.trim(), category: profile.category, description: profile.description, coverImage: '', images: [] });
   writeProfiles(profiles);
   logEvent('admin.profile.saved', { category: profile.category, created: existingIndex === -1, profileCount: profiles.length });
   return res.json({ ok: true, profile });
@@ -299,8 +320,7 @@ const multer = require('multer');
 
 // Simple middleware to ensure the user is authenticated via passport session
 function ensureAuthenticated(req, res, next) {
-  if (!req.user && IS_LOCAL_DEV) req.user = LOCAL_ADMIN_USER;
-  if (req.user) return next();
+  if (req.user && ALLOWED_EMAILS.includes(req.user.email)) return next();
   return res.status(401).json({ error: 'Unauthorized' });
 }
 
@@ -346,7 +366,7 @@ app.delete('/api/admin/profiles/:profileId', ensureAuthenticated, (req, res) => 
 });
 
 // Gallery images are public; upload and delete endpoints remain admin-only.
-const UPLOADS_ROOT = path.join(__dirname, '..', 'uploads');
+const UPLOADS_ROOT = path.resolve(process.env.UPLOADS_DIR || path.join(__dirname, '..', 'uploads'));
 
 app.get('/uploads/:profileId/:filename', (req, res) => {
   const profileId = sanitizeProfileId(req.params.profileId || '');
@@ -360,7 +380,7 @@ app.get('/uploads/:profileId/:filename', (req, res) => {
   const uploadsResolved = path.resolve(UPLOADS_ROOT);
 
   // Prevent path traversal — resolved path must be inside uploads root
-  if (!resolved.startsWith(uploadsResolved)) return res.status(400).send('Invalid path');
+  if (!resolved.startsWith(`${uploadsResolved}${path.sep}`) || !/\.(jpe?g|png|webp|gif|avif|tiff?)$/i.test(filename)) return res.status(400).send('Invalid path');
   if (!fs.existsSync(resolved)) return res.status(404).send('Not found');
 
   res.set('Cache-Control', 'public, max-age=86400');
@@ -371,32 +391,80 @@ app.get('/uploads/:profileId/:filename', (req, res) => {
 // Configure multer storage to place files under uploads/<profileId>/
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const profileIdRaw = req.params.profileId || 'misc';
-    const profileId = sanitizeProfileId(profileIdRaw) || 'misc';
-    const dest = path.join(__dirname, '..', 'uploads', profileId);
+    const dest = path.join(UPLOADS_ROOT, '.pending');
     fs.mkdirSync(dest, { recursive: true });
     cb(null, dest);
   },
   filename: (req, file, cb) => {
-    const safeName = `${Date.now()}-${file.originalname.replace(/\s+/g, '-')}`;
+    const safeName = `${crypto.randomUUID()}.upload`;
     cb(null, safeName);
   }
 });
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024, files: 20 }, // 10MB per file, max 20 files
+  limits: { fileSize: 10 * 1024 * 1024, files: 20, fields: 2, fieldSize: 50 * 1024, parts: 22 },
   fileFilter: (req, file, cb) => {
-    if (!file.mimetype || !file.mimetype.startsWith('image/')) {
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif', 'image/tiff'].includes(file.mimetype)) {
       return cb(new Error('Only image files are allowed'), false);
     }
     cb(null, true);
   }
 });
 
+const uploadLimiter = rateLimit({ windowMs: 60 * 60 * 1000, max: 30 });
+function requireProject(req, res, next) {
+  if (!/^[a-z0-9_-]{1,100}$/.test(req.params.profileId) || !readProfiles().some((p) => p.id === req.params.profileId)) {
+    return res.status(404).json({ error: 'Project not found' });
+  }
+  next();
+}
+
+async function validateUploads(req, res, next) {
+  const files = req.files || [];
+  const cleanup = () => {
+    for (const file of files) {
+      try { fs.unlinkSync(file.path); } catch (error) { if (error.code !== 'ENOENT') logEvent('upload.cleanup.failed', {}, 'error'); }
+    }
+  };
+  // Never leave files behind after validation errors or an interrupted request.
+  res.on('finish', () => { if (!req.uploadCommitted) cleanup(); });
+  res.on('close', () => { if (!req.uploadCommitted) cleanup(); });
+  try {
+    const urls = req.body.urls ? JSON.parse(req.body.urls) : [];
+    if (!Array.isArray(urls) || urls.length + files.length > 20 || !urls.every(allowedImageUrl) || !urls.length && !files.length) {
+      throw new Error('Provide up to 20 photos or HTTPS image URLs');
+    }
+    const extensions = { jpeg: 'jpg', png: 'png', webp: 'webp', gif: 'gif', heif: 'avif', tiff: 'tiff' };
+    for (const file of files) {
+      const image = sharp(file.path, { limitInputPixels: 100000000, failOn: 'warning' });
+      const metadata = await image.metadata();
+      if (!extensions[metadata.format] || metadata.pages > 1 || (metadata.format === 'heif' && metadata.compression !== 'av1')) {
+        throw new Error('Only single-frame JPEG, PNG, WebP, GIF, AVIF, and TIFF photos are supported');
+      }
+      // Decode the original to catch corrupted/forged images without changing stored bytes.
+      await image.stats();
+      file.validatedExtension = extensions[metadata.format];
+    }
+    if (req.aborted || res.destroyed) throw new Error('Upload interrupted');
+    const destination = path.join(UPLOADS_ROOT, req.params.profileId);
+    fs.mkdirSync(destination, { recursive: true });
+    for (const file of files) {
+      file.filename = `${crypto.randomUUID()}.${file.validatedExtension}`;
+      const published = path.join(destination, file.filename);
+      fs.renameSync(file.path, published);
+      file.path = published;
+    }
+    next();
+  } catch (error) {
+    cleanup();
+    if (!res.destroyed) res.status(400).json({ error: 'Invalid upload. Use up to 20 valid, single-frame photos (10MB each) or HTTPS URLs.' });
+  }
+}
+
 // New upload endpoint: accepts multipart/form-data with files named 'images' and an optional 'urls' JSON field
 // IMPORTANT: ensureAuthenticated runs BEFORE multer so unauthenticated users cannot upload files.
-app.post('/api/admin/upload/:profileId', ensureAuthenticated, upload.array('images'), (req, res) => {
+app.post('/api/admin/upload/:profileId', ensureAuthenticated, uploadLimiter, requireProject, upload.array('images'), validateUploads, (req, res) => {
   const profileId = sanitizeProfileId(req.params.profileId || '');
   const profiles = readProfiles();
   const profile = profiles.find((item) => item.id === profileId);
@@ -417,7 +485,7 @@ app.post('/api/admin/upload/:profileId', ensureAuthenticated, upload.array('imag
   }
 
   // Build public URLs pointing to this backend (prefer BACKEND_URL env when set to handle proxies/CDNs)
-  const origin = BACKEND_URL_ENV || `${req.protocol}://${req.get('host')}`;
+  const origin = BACKEND_URL_ENV || 'http://localhost:4000';
   const mappedFromFiles = files.map((f) => ({
     path: `${origin.replace(/\/$/, '')}/uploads/${encodeURIComponent(sanitizeProfileId(profileId))}/${encodeURIComponent(f.filename)}`,
     title: f.originalname.replace(/\.[^.]+$/, '')
@@ -439,6 +507,7 @@ app.post('/api/admin/upload/:profileId', ensureAuthenticated, upload.array('imag
   }
   writeProfiles(profiles);
 
+  req.uploadCommitted = true;
   logEvent('admin.images.uploaded', {
     category: profile.category,
     fileCount: files.length,
@@ -455,7 +524,7 @@ app.get('/api/images', async (req, res) => {
 
   if (IMAGE_LIST_URL) {
     try {
-      const r = await fetch(IMAGE_LIST_URL);
+      const r = await fetch(IMAGE_LIST_URL, { redirect: 'error', timeout: 15000, size: 2 * 1024 * 1024 });
       if (!r.ok) return res.status(502).send('Failed to fetch image list from IMAGE_LIST_URL');
       let list = await r.json();
       if (Array.isArray(list) && list.length && typeof list[0] === 'object' && Array.isArray(list[0].images)) {
@@ -485,30 +554,45 @@ app.get('/api/images', async (req, res) => {
 app.get('/images/*', async (req, res) => {
   if (!NAS_BASE) return res.status(500).send('NAS_BASE_URL not configured');
   const rel = req.params[0];
-  const targetUrl = (NAS_BASE.endsWith('/') ? NAS_BASE.slice(0,-1) : NAS_BASE) + '/' + rel;
+  let targetUrl;
+  try { targetUrl = nasImageUrl(NAS_BASE, rel); }
+  catch { return res.status(400).send('Invalid image path'); }
   const headers = {};
   if (NAS_USER && NAS_PASS) headers.Authorization = 'Basic ' + Buffer.from(`${NAS_USER}:${NAS_PASS}`).toString('base64');
 
   try {
-    const upstream = await fetch(targetUrl, { headers });
+    const upstream = await fetch(targetUrl, { headers, redirect: 'error', timeout: 15000 });
     if (!upstream.ok) return res.status(upstream.status).send('Upstream returned ' + upstream.status);
 
     const contentType = upstream.headers.get('content-type');
     const contentLength = upstream.headers.get('content-length');
     const lastModified = upstream.headers.get('last-modified');
 
+    if (!/^image\/(jpeg|png|webp|gif|avif|tiff)(;|$)/i.test(contentType || '')) {
+      upstream.body.destroy();
+      return res.status(415).send('Unsupported image type');
+    }
+
     if (contentType) res.set('Content-Type', contentType);
     if (contentLength) res.set('Content-Length', contentLength);
     if (lastModified) res.set('Last-Modified', lastModified);
     res.set('Cache-Control', 'public, max-age=31536000, immutable');
-    upstream.body.pipe(res);
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    pipeline(upstream.body, res, (error) => { if (error) logEvent('image.stream.failed', {}, 'warn'); });
   } catch (err) {
     console.error('Proxy error', err);
     res.status(502).send('Proxy error');
   }
 });
 
-app.listen(PORT, () => {
+app.use((error, req, res, next) => {
+  if (res.headersSent) return next(error);
+  logEvent('request.failed', { errorName: error.name }, 'error');
+  const status = error instanceof multer.MulterError || error.message === 'Only image files are allowed' ? 400 : error.status || 500;
+  res.status(status).json({ error: status === 500 ? 'Request failed' : 'Invalid request or upload limit exceeded' });
+});
+
+if (require.main === module) app.listen(PORT, IS_PRODUCTION ? '0.0.0.0' : '127.0.0.1', () => {
   logEvent('server.started', {
     port: Number(PORT),
     environment: process.env.NODE_ENV || 'development',
@@ -517,3 +601,5 @@ app.listen(PORT, () => {
     nasConfigured: Boolean(NAS_BASE)
   });
 });
+
+module.exports = { app, sessionStore };

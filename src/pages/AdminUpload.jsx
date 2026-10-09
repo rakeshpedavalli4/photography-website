@@ -1,9 +1,7 @@
 import React, { useState, useCallback, useEffect } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 
-const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-  ? 'http://localhost:4000'
-  : 'https://backend-we97.onrender.com'
+import { BACKEND_URL, apiFetch } from '../api'
 
 export default function AdminUpload() {
   const navigate = useNavigate()
@@ -23,7 +21,7 @@ export default function AdminUpload() {
   useEffect(() => {
     let mounted = true
     console.info('[admin-upload] session check started')
-    fetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' })
+    apiFetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' })
       .then((response) => {
         console.info('[admin-upload] session response received', { status: response.status })
         if (!response.ok) throw new Error('Session request failed')
@@ -34,6 +32,7 @@ export default function AdminUpload() {
         if (!d.user) {
           console.warn('[admin-upload] no admin session found')
           setNotAuthenticated(true)
+          setAuthChecking(false)
         } else {
           console.info('[admin-upload] session confirmed')
           setAuthChecking(false)
@@ -43,6 +42,7 @@ export default function AdminUpload() {
         if (!mounted) return
         console.error('[admin-upload] session check failed', { errorName: error.name })
         setNotAuthenticated(true)
+        setAuthChecking(false)
       })
     return () => { mounted = false }
   }, [])
@@ -121,7 +121,7 @@ export default function AdminUpload() {
 
     try {
       console.info('[admin-upload] request started', { fileCount: droppedImages.length, urlCount: typed.length })
-      const res = await fetch(`${BACKEND_URL}/api/admin/upload/${encodeURIComponent(profileId)}`, {
+      const res = await apiFetch(`${BACKEND_URL}/api/admin/upload/${encodeURIComponent(profileId)}`, {
         method: 'POST',
         credentials: 'include',
         body: form
@@ -146,7 +146,7 @@ export default function AdminUpload() {
           const images = [...droppedDataUrls, ...typed]
           if (images.length) {
             try {
-              const fallbackRes = await fetch(`${BACKEND_URL}/api/admin/upload`, {
+              const fallbackRes = await apiFetch(`${BACKEND_URL}/api/admin/upload`, {
                 method: 'POST',
                 credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },

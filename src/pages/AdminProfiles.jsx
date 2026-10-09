@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react'
 
-const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-  ? 'http://localhost:4000'
-  : 'https://backend-we97.onrender.com'
+import { BACKEND_URL, apiFetch } from '../api'
 
 export default function AdminProfiles() {
   const [profiles, setProfiles] = useState([])
@@ -13,7 +11,7 @@ export default function AdminProfiles() {
   useEffect(() => {
     let mounted = true
     console.info('[admin-profiles] session check started')
-    fetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' })
+    apiFetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' })
       .then((response) => {
         console.info('[admin-profiles] session response received', { status: response.status })
         if (!response.ok) throw new Error('Session request failed')
@@ -29,7 +27,7 @@ export default function AdminProfiles() {
           console.info('[admin-profiles] session confirmed')
           setAuthChecking(false)
           console.info('[admin-profiles] profile request started')
-          fetch(`${BACKEND_URL}/api/admin/profiles`, { credentials: 'include' })
+          apiFetch(`${BACKEND_URL}/api/admin/profiles`, { credentials: 'include' })
             .then(async (response) => {
               console.info('[admin-profiles] profile response received', { status: response.status })
               if (!response.ok) throw new Error('Could not load admin profiles.')

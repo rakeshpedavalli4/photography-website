@@ -1,9 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 
-const BACKEND_URL = (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'))
-  ? 'http://localhost:4000'
-  : 'https://backend-we97.onrender.com'
+import { BACKEND_URL, apiFetch } from '../api'
 
 const CATEGORY_LABELS = {
   portraits: 'Portraits',
@@ -31,7 +29,7 @@ export default function AdminAddProject() {
     let mounted = true
 
     console.info('[admin-project] session check started', { category: safeCategory })
-    fetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' })
+    apiFetch(`${BACKEND_URL}/api/auth/user`, { credentials: 'include' })
       .then((response) => {
         console.info('[admin-project] session response received', { category: safeCategory, status: response.status })
         if (!response.ok) throw new Error('Session request failed')
@@ -139,7 +137,7 @@ export default function AdminAddProject() {
         images: []
       }
 
-      const createRes = await fetch(`${BACKEND_URL}/api/admin/profiles`, {
+      const createRes = await apiFetch(`${BACKEND_URL}/api/admin/profiles`, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -170,7 +168,7 @@ export default function AdminAddProject() {
           fileCount: droppedImages.length,
           urlCount: typedUrls.length
         })
-        const uploadRes = await fetch(`${BACKEND_URL}/api/admin/upload/${encodeURIComponent(projectId)}`, {
+        const uploadRes = await apiFetch(`${BACKEND_URL}/api/admin/upload/${encodeURIComponent(projectId)}`, {
           method: 'POST',
           credentials: 'include',
           body: form

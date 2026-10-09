@@ -121,11 +121,18 @@ export default function HomePage() {
 
   return (
     <section className="home-page">
-      <div className="hero">
-        <h1>Rakesh Pedavalli</h1>
-        <p>Professional Photographer • Cincinnati, Ohio</p>
-        <p className="tagline">Capturing moments with clarity and vibrant colors</p>
-      </div>
+      <header className="hero">
+        <div className="hero-intro">
+          <p className="hero-eyebrow">Photographer <span aria-hidden="true">/</span> Cincinnati, Ohio</p>
+          <h1>Rakesh <span>Pedavalli</span></h1>
+        </div>
+        <div className="hero-details">
+          <p className="hero-tagline">Moments in full color.</p>
+          <Link to="/gallery" className="hero-gallery-link">
+            Explore the gallery <span aria-hidden="true">↗</span>
+          </Link>
+        </div>
+      </header>
 
       <div className="categories-section">
         {currentSlide && (

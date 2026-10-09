@@ -404,19 +404,6 @@ body.profile-gallery-scrolled .header {
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.9);
 }
 
-.home-showcase-caption > span {
-  display: block;
-  color: var(--accent);
-  font-size: 0.68rem;
-  letter-spacing: 0.12rem;
-  text-transform: uppercase;
-}
-
-.home-showcase-caption > span + span {
-  margin-top: 0.75rem;
-  color: var(--text);
-}
-
 .home-showcase-caption h2 {
   margin: 0.5rem 0;
   font-size: 2rem;

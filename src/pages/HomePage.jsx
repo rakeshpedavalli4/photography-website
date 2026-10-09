@@ -179,8 +179,6 @@ export default function HomePage() {
                   alt={currentSlide.title}
                 />
                 <div className="home-showcase-caption">
-                  <span>{currentSlide.category}</span>
-                  <span>View project</span>
                 </div>
               </Link>
               {nextSlide && (

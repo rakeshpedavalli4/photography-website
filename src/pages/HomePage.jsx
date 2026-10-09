@@ -17,10 +17,13 @@ function shuffle(items) {
 export default function HomePage() {
   const [slides, setSlides] = useState([])
   const [activeSlide, setActiveSlide] = useState(0)
+  const [slideDirection, setSlideDirection] = useState('next')
   const [paused, setPaused] = useState(false)
   const [leavingSlide, setLeavingSlide] = useState(null)
   const currentSlideRef = useRef(null)
   const hoveredSideRef = useRef(null)
+  const touchStartRef = useRef(null)
+  const suppressClickRef = useRef(false)
 
   useEffect(() => {
     let mounted = true
@@ -56,6 +59,7 @@ export default function HomePage() {
   useEffect(() => {
     if (paused || slides.length < 2) return undefined
     const timer = window.setInterval(() => {
+      setSlideDirection('next')
       setActiveSlide((current) => (current + 1 + Math.floor(Math.random() * (slides.length - 1))) % slides.length)
     }, 7000)
     return () => window.clearInterval(timer)
@@ -73,7 +77,36 @@ export default function HomePage() {
     const side = event.clientX < bounds.left + bounds.width / 2 ? -1 : 1
     if (side === hoveredSideRef.current) return
     hoveredSideRef.current = side
+    setSlideDirection(side < 0 ? 'previous' : 'next')
     setActiveSlide((current) => (current + side + slides.length) % slides.length)
+  }
+
+  const selectSlide = (index, direction) => {
+    setSlideDirection(direction)
+    setActiveSlide(index)
+  }
+
+  const handleTouchStart = (event) => {
+    const touch = event.touches[0]
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY }
+    suppressClickRef.current = false
+  }
+
+  const handleTouchEnd = (event) => {
+    const start = touchStartRef.current
+    const touch = event.changedTouches[0]
+    touchStartRef.current = null
+    if (!start || !touch || slides.length < 2) return
+
+    const deltaX = touch.clientX - start.x
+    const deltaY = touch.clientY - start.y
+    if (Math.abs(deltaX) < 48 || Math.abs(deltaX) <= Math.abs(deltaY)) return
+
+    const direction = deltaX < 0 ? 'next' : 'previous'
+    const offset = direction === 'next' ? 1 : -1
+    selectSlide((activeSlide + offset + slides.length) % slides.length, direction)
+    suppressClickRef.current = true
+    window.setTimeout(() => { suppressClickRef.current = false }, 500)
   }
 
   useEffect(() => {
@@ -116,7 +149,7 @@ export default function HomePage() {
                   className="home-showcase-preview previous"
                   type="button"
                   aria-label={`Previous photo: ${previousSlide.title}`}
-                  onClick={() => setActiveSlide(previousSlideIndex)}
+                  onClick={() => selectSlide(previousSlideIndex, 'previous')}
                 >
                   <img src={previousSlide.src} alt="" />
                 </button>
@@ -126,19 +159,27 @@ export default function HomePage() {
                 to={`/gallery/${currentSlide.category}/${currentSlide.profileId}`}
                 onMouseMove={handleShowcaseMouseMove}
                 onMouseLeave={() => { hoveredSideRef.current = null }}
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+                onTouchCancel={() => { touchStartRef.current = null }}
+                onClickCapture={(event) => {
+                  if (!suppressClickRef.current) return
+                  event.preventDefault()
+                  event.stopPropagation()
+                  suppressClickRef.current = false
+                }}
               >
                 {leavingSlide && (
-                  <img className="home-showcase-image is-leaving" src={leavingSlide.src} alt="" />
+                  <img className={`home-showcase-image is-leaving is-leaving-${slideDirection}`} src={leavingSlide.src} alt="" />
                 )}
                 <img
                   key={currentSlide.src}
-                  className={`home-showcase-image${leavingSlide ? ' is-entering' : ' is-visible'}`}
+                  className={`home-showcase-image${leavingSlide ? ` is-entering is-entering-${slideDirection}` : ' is-visible'}`}
                   src={currentSlide.src}
                   alt={currentSlide.title}
                 />
                 <div className="home-showcase-caption">
                   <span>{currentSlide.category}</span>
-                  <h2>{currentSlide.title}</h2>
                   <span>View project</span>
                 </div>
               </Link>
@@ -147,7 +188,7 @@ export default function HomePage() {
                   className="home-showcase-preview next"
                   type="button"
                   aria-label={`Next photo: ${nextSlide.title}`}
-                  onClick={() => setActiveSlide(nextSlideIndex)}
+                  onClick={() => selectSlide(nextSlideIndex, 'next')}
                 >
                   <img src={nextSlide.src} alt="" />
                 </button>

@@ -62,6 +62,10 @@ export default function HomePage() {
   }, [paused, slides.length])
 
   const currentSlide = slides[activeSlide]
+  const previousSlideIndex = (activeSlide - 1 + slides.length) % slides.length
+  const nextSlideIndex = (activeSlide + 1) % slides.length
+  const previousSlide = slides.length > 1 ? slides[previousSlideIndex] : null
+  const nextSlide = slides.length > 1 ? slides[nextSlideIndex] : null
 
   const handleShowcaseMouseMove = (event) => {
     if (slides.length < 2) return
@@ -107,6 +111,16 @@ export default function HomePage() {
             }}
           >
             <div className="home-showcase-frame">
+              {previousSlide && (
+                <button
+                  className="home-showcase-preview previous"
+                  type="button"
+                  aria-label={`Previous photo: ${previousSlide.title}`}
+                  onClick={() => setActiveSlide(previousSlideIndex)}
+                >
+                  <img src={previousSlide.src} alt="" />
+                </button>
+              )}
               <Link
                 className="home-showcase-link"
                 to={`/gallery/${currentSlide.category}/${currentSlide.profileId}`}
@@ -128,6 +142,16 @@ export default function HomePage() {
                   <span>View project</span>
                 </div>
               </Link>
+              {nextSlide && (
+                <button
+                  className="home-showcase-preview next"
+                  type="button"
+                  aria-label={`Next photo: ${nextSlide.title}`}
+                  onClick={() => setActiveSlide(nextSlideIndex)}
+                >
+                  <img src={nextSlide.src} alt="" />
+                </button>
+              )}
             </div>
           </section>
         )}

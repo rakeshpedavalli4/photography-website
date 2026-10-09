@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import Gallery from '../components/Gallery'
 
@@ -14,6 +14,29 @@ export default function ProfilePage() {
   const [coverSavingPath, setCoverSavingPath] = useState('')
   const [coverMessage, setCoverMessage] = useState('')
   const [coverMessageType, setCoverMessageType] = useState('')
+  const [isGalleryScrolled, setIsGalleryScrolled] = useState(false)
+  const galleryStartRef = useRef(null)
+
+  useEffect(() => {
+    const updateCompactHeader = () => {
+      const headerHeight = document.querySelector('.header')?.offsetHeight || 0
+      const galleryTop = galleryStartRef.current?.getBoundingClientRect().top
+      setIsGalleryScrolled(galleryTop !== undefined && galleryTop <= headerHeight)
+    }
+
+    window.addEventListener('scroll', updateCompactHeader, { passive: true })
+    window.addEventListener('resize', updateCompactHeader)
+    updateCompactHeader()
+    return () => {
+      window.removeEventListener('scroll', updateCompactHeader)
+      window.removeEventListener('resize', updateCompactHeader)
+    }
+  }, [])
+
+  useEffect(() => {
+    document.body.classList.toggle('profile-gallery-scrolled', isGalleryScrolled)
+    return () => document.body.classList.remove('profile-gallery-scrolled')
+  }, [isGalleryScrolled])
 
   useEffect(() => {
     let mounted = true
@@ -118,6 +141,12 @@ export default function ProfilePage() {
 
   return (
     <section className="profile-page">
+      {isGalleryScrolled && (
+        <div className="profile-compact-header">
+          <Link to={`/gallery/${category}`} className="profile-compact-back" aria-label="Back to gallery">←</Link>
+          <span>{profile.name}</span>
+        </div>
+      )}
       {coverUrl ? (
         <section className="profile-cover" aria-label={`${profile.name} cover photo`}>
           <img src={coverUrl} alt="" />
@@ -127,7 +156,7 @@ export default function ProfilePage() {
 
       {coverMessage && <p className={`profile-cover-message ${coverMessageType}`} role="status">{coverMessage}</p>}
 
-      <div className="profile-gallery-wrap">
+      <div className="profile-gallery-wrap" ref={galleryStartRef}>
         {profile.images && profile.images.length ? (
           <Gallery
             items={profile.images}

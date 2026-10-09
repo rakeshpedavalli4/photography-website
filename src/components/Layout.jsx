@@ -57,16 +57,6 @@ export default function Layout({ children }) {
             <li><Link to="/" className={location.pathname === '/' ? 'active' : ''}>Home</Link></li>
             <li><Link to="/contact" className={location.pathname === '/contact' ? 'active' : ''}>Contact</Link></li>
           </ul>
-          <div className="admin-controls">
-            {isAdmin && <div className="admin-status">You are an admin</div>}
-            {isAdmin ? (
-              <button className="admin-button admin-logout-button" type="button" onClick={handleLogout} disabled={loggingOut}>
-                {loggingOut ? 'Logging out...' : 'Logout'}
-              </button>
-            ) : (
-              <a className="admin-button" href={`${BACKEND_URL}/auth/google?redirect=${encodeURIComponent('/')}`}>Admin</a>
-            )}
-          </div>
         </nav>
       </header>
 
@@ -75,6 +65,16 @@ export default function Layout({ children }) {
       </main>
 
       <footer className="footer">
+        <div className="admin-controls footer-admin-controls">
+          {isAdmin && <div className="admin-status">You are an admin</div>}
+          {isAdmin ? (
+            <button className="admin-button admin-logout-button" type="button" onClick={handleLogout} disabled={loggingOut}>
+              {loggingOut ? 'Logging out...' : 'Logout'}
+            </button>
+          ) : (
+            <a className="admin-button" href={`${BACKEND_URL}/auth/google?redirect=${encodeURIComponent('/')}`}>Admin</a>
+          )}
+        </div>
         <p>© 2025 Rakesh Chowdary Pedavalli • Cincinnati, Ohio</p>
       </footer>
     </div>

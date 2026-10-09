@@ -42,7 +42,10 @@ export default function CategoryPage({ category }) {
       })
 
     console.info('[gallery] project request started', { category })
-    fetch(`${BACKEND_URL}/api/profiles?category=${encodeURIComponent(category)}`)
+    const profilesUrl = category
+      ? `${BACKEND_URL}/api/profiles?category=${encodeURIComponent(category)}`
+      : `${BACKEND_URL}/api/profiles`
+    fetch(profilesUrl)
       .then(async (response) => {
         console.info('[gallery] project response received', { category, status: response.status })
         if (!response.ok) throw new Error('Could not load projects.')
@@ -65,7 +68,10 @@ export default function CategoryPage({ category }) {
         }
 
         console.info('[gallery] fallback image request started', { category })
-        return fetch(`${BACKEND_URL}/api/images?category=${encodeURIComponent(category)}`)
+        const imagesUrl = category
+          ? `${BACKEND_URL}/api/images?category=${encodeURIComponent(category)}`
+          : `${BACKEND_URL}/api/images`
+        return fetch(imagesUrl)
           .then(async (imageResponse) => {
             console.info('[gallery] fallback image response received', { category, status: imageResponse.status })
             if (imageResponse.status === 404) return []
@@ -92,7 +98,7 @@ export default function CategoryPage({ category }) {
     return () => { mounted = false }
   }, [category])
 
-  const info = categoryInfo[category] || { title: 'Gallery', desc: '' }
+  const info = categoryInfo[category] || { title: 'Gallery', desc: 'All projects' }
   const addButtonLabel = 'Add project'
   const addButtonHref = `/admin/add/${category}`
 
@@ -128,7 +134,7 @@ export default function CategoryPage({ category }) {
       <div className="category-header">
         <h1>{info.title}</h1>
         <p>{info.desc}</p>
-        {adminLoggedIn && (
+        {adminLoggedIn && category && (
           <div className="category-actions">
             <Link className="primary-btn" to={addButtonHref}>{addButtonLabel}</Link>
           </div>
@@ -145,7 +151,7 @@ export default function CategoryPage({ category }) {
               const coverUrl = cover ? (/^https?:\/\//.test(cover) ? cover : `/images/${cover}`) : ''
               return (
                 <article key={profile.id} className="profile-card">
-                  <Link to={`/gallery/${category}/${profile.id}`} className="profile-card-link">
+                  <Link to={`/gallery/${profile.category || category}/${profile.id}`} className="profile-card-link">
                     {coverUrl ? <img src={coverUrl} alt={profile.name} /> : <div className="profile-card-placeholder">No cover image</div>}
                     <div className="profile-card-content">
                       <h3>{profile.name}</h3>

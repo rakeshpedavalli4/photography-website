@@ -96,23 +96,34 @@ export default function ProfilePage() {
   if (loading) return <section className="profile-page"><p>Loading profile...</p></section>
   if (!profile) return <section className="profile-page"><p>Profile not found.</p></section>
 
+  const cover = profile.coverImage || profile.images?.[0]?.path
+  const coverUrl = cover ? (/^https?:\/\//.test(cover) ? cover : `/images/${cover}`) : ''
+  const profileHeader = (
+    <div className="profile-header">
+      <Link to={`/gallery/${category}`} className="back-link">← Back to portraits</Link>
+      <h1>{profile.name}</h1>
+      <p>{profile.description || 'Portrait collection'}</p>
+      {isAdmin && (
+        <div className="profile-header-actions">
+          <Link
+            className="primary-btn profile-add-photos-btn"
+            to={`/admin/upload?profileId=${encodeURIComponent(profile.id)}&category=${encodeURIComponent(category)}`}
+          >
+            Add photos
+          </Link>
+        </div>
+      )}
+    </div>
+  )
+
   return (
     <section className="profile-page">
-      <div className="profile-header">
-        <Link to={`/gallery/${category}`} className="back-link">← Back to portraits</Link>
-        <h1>{profile.name}</h1>
-        <p>{profile.description || 'Portrait collection'}</p>
-        {isAdmin && (
-          <div className="profile-header-actions">
-            <Link
-              className="primary-btn profile-add-photos-btn"
-              to={`/admin/upload?profileId=${encodeURIComponent(profile.id)}&category=${encodeURIComponent(category)}`}
-            >
-              Add photos
-            </Link>
-          </div>
-        )}
-      </div>
+      {coverUrl ? (
+        <section className="profile-cover" aria-label={`${profile.name} cover photo`}>
+          <img src={coverUrl} alt="" />
+          {profileHeader}
+        </section>
+      ) : profileHeader}
 
       {coverMessage && <p className={`profile-cover-message ${coverMessageType}`} role="status">{coverMessage}</p>}
 

@@ -29,6 +29,7 @@ export default function App() {
           <Route path="/" element={<HomePage />} />
           <Route path="/gallery/:category/:profileId" element={<ProfilePageWrapper />} />
           <Route path="/gallery/:category" element={<CategoryPageWrapper />} />
+          <Route path="/gallery" element={<CategoryPageWrapper />} />
           <Route path="/contact" element={<Contact />} />
           <Route path="/admin" element={<Navigate to="/" replace />} />
           <Route path="/admin/upload" element={<AdminUpload />} />

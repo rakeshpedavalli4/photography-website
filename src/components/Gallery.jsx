@@ -22,7 +22,6 @@ export default function Gallery({ items = [], showCoverControls = false, coverIm
                 {coverSavingPath === it.path ? 'Saving...' : it.path === coverImage ? 'Current cover' : 'Set as cover'}
               </button>
             )}
-            <figcaption>{title}</figcaption>
           </figure>
         )
       })}

@@ -76,8 +76,6 @@ export default function Layout({ children }) {
 
       <footer className="footer">
         <p>© 2025 Rakesh Chowdary Pedavalli • Cincinnati, Ohio</p>
-        <p>📧 <a href="mailto:rakesh.pedavalli2204@gmail.com">rakesh.pedavalli2204@gmail.com</a> • 📱 <a href="tel:+15138796147">(513) 879-6147</a></p>
-        <p>Powered by your NAS • Preserving quality and color</p>
       </footer>
     </div>
   )

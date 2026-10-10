@@ -99,12 +99,21 @@ if (!fs.existsSync(PROFILE_FILE)) {
   }, null, 2));
 }
 
+let profileCache;
+
 function readProfiles() {
   try {
+    const stat = fs.statSync(PROFILE_FILE, { bigint: true });
+    const version = `${stat.ino}:${stat.size}:${stat.mtimeNs}:${stat.ctimeNs}`;
+    if (profileCache?.version === version) return structuredClone(profileCache.profiles);
     const raw = fs.readFileSync(PROFILE_FILE, 'utf8');
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed.profiles) ? parsed.profiles : [];
+    const profiles = Array.isArray(parsed.profiles) ? parsed.profiles : [];
+    profileCache = { version, profiles };
+    // Admin handlers mutate their copy before committing it to disk.
+    return structuredClone(profiles);
   } catch (err) {
+    profileCache = undefined;
     console.error('Failed reading profiles file:', err);
     return [];
   }
@@ -112,6 +121,7 @@ function readProfiles() {
 
 function writeProfiles(profiles) {
   fs.writeFileSync(PROFILE_FILE, JSON.stringify({ profiles }, null, 2));
+  profileCache = undefined;
 }
 
 // Basic security headers and rate limiting
@@ -179,10 +189,6 @@ if (GOOGLE_ENABLED) {
   console.warn('Google OAuth is disabled because the local credentials are still placeholders. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET to real values.');
 }
 
-if (!NAS_BASE && !IMAGE_LIST_URL) {
-  console.warn('Warning: NAS_BASE_URL and IMAGE_LIST_URL are not configured. The server will serve a sample list only.');
-}
-
 app.use(function (req, res, next) {
   const origin = req.headers.origin;
   res.vary('Origin');
@@ -199,7 +205,13 @@ app.use(function (req, res, next) {
 });
 
 app.use('/api', (req, res, next) => {
-  if (req.path.startsWith('/auth') || req.path.startsWith('/admin')) res.set('Cache-Control', 'no-store');
+  // Public JSON can reuse ETags, but must check for edits on every visit.
+  res.set('Cache-Control', req.path.startsWith('/auth') || req.path.startsWith('/admin')
+    ? 'no-store' : 'public, no-cache');
+  next();
+});
+app.use('/auth', (req, res, next) => {
+  res.set('Cache-Control', 'no-store');
   next();
 });
 app.use('/api', csrfProtection(ALLOWED_ORIGINS));
@@ -383,9 +395,10 @@ app.get('/uploads/:profileId/:filename', (req, res) => {
   if (!resolved.startsWith(`${uploadsResolved}${path.sep}`) || !/\.(jpe?g|png|webp|gif|avif|tiff?)$/i.test(filename)) return res.status(400).send('Invalid path');
   if (!fs.existsSync(resolved)) return res.status(404).send('Not found');
 
-  res.set('Cache-Control', 'public, max-age=86400');
+  // New uploads use unique UUID filenames and are never overwritten.
+  const immutable = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\./i.test(filename);
   res.set('Cross-Origin-Resource-Policy', 'cross-origin');
-  return res.sendFile(resolved);
+  return res.sendFile(resolved, { maxAge: immutable ? '1y' : '1h', immutable });
 });
 
 // Configure multer storage to place files under uploads/<profileId>/
@@ -558,11 +571,28 @@ app.get('/images/*', async (req, res) => {
   try { targetUrl = nasImageUrl(NAS_BASE, rel); }
   catch { return res.status(400).send('Invalid image path'); }
   const headers = {};
+  if (req.headers['if-none-match']) headers['If-None-Match'] = req.headers['if-none-match'];
+  if (req.headers['if-modified-since']) headers['If-Modified-Since'] = req.headers['if-modified-since'];
   if (NAS_USER && NAS_PASS) headers.Authorization = 'Basic ' + Buffer.from(`${NAS_USER}:${NAS_PASS}`).toString('base64');
 
   try {
     const upstream = await fetch(targetUrl, { headers, redirect: 'error', timeout: 15000 });
-    if (!upstream.ok) return res.status(upstream.status).send('Upstream returned ' + upstream.status);
+    if (!upstream.ok && upstream.status !== 304) {
+      upstream.body.destroy();
+      res.set('Cache-Control', 'no-store');
+      return res.status(upstream.status).send('Upstream returned ' + upstream.status);
+    }
+
+    res.set('Cache-Control', 'public, max-age=3600, must-revalidate');
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+    const etag = upstream.headers.get('etag');
+    if (etag) res.set('ETag', etag);
+    const modified = upstream.headers.get('last-modified');
+    if (modified) res.set('Last-Modified', modified);
+    if (upstream.status === 304) {
+      upstream.body.destroy();
+      return res.status(304).end();
+    }
 
     const contentType = upstream.headers.get('content-type');
     const contentLength = upstream.headers.get('content-length');
@@ -570,17 +600,17 @@ app.get('/images/*', async (req, res) => {
 
     if (!/^image\/(jpeg|png|webp|gif|avif|tiff)(;|$)/i.test(contentType || '')) {
       upstream.body.destroy();
+      res.set('Cache-Control', 'no-store');
       return res.status(415).send('Unsupported image type');
     }
 
     if (contentType) res.set('Content-Type', contentType);
     if (contentLength) res.set('Content-Length', contentLength);
     if (lastModified) res.set('Last-Modified', lastModified);
-    res.set('Cache-Control', 'public, max-age=31536000, immutable');
-    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
     pipeline(upstream.body, res, (error) => { if (error) logEvent('image.stream.failed', {}, 'warn'); });
   } catch (err) {
     console.error('Proxy error', err);
+    res.set('Cache-Control', 'no-store');
     res.status(502).send('Proxy error');
   }
 });

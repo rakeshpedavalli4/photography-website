@@ -2,13 +2,13 @@ import React from 'react'
 
 export default function Checklist() {
   const items = [
-    { done: false, title: 'Portfolio Images', desc: 'Upload your best photos to NAS (organize in folders by category)' },
+    { done: false, title: 'Portfolio Images', desc: 'Upload your best photos to Cloudflare R2 (organize in folders by category)' },
     { done: false, title: 'Image Metadata', desc: 'Add titles, descriptions, camera settings (EXIF) for each photo' },
     { done: false, title: 'Category Sections', desc: 'Organize into categories (Portraits, Landscapes, Events, etc.)' },
     { done: false, title: 'Contact Form', desc: 'Add contact/booking inquiry form' },
     { done: false, title: 'Social Links', desc: 'Link to Instagram, Facebook, or email' },
     { done: false, title: 'Pricing/Services', desc: 'If you offer photography services, add pricing page' },
-    { done: false, title: 'NAS Configuration', desc: 'Set NAS_BASE_URL and credentials in .env' },
+    { done: false, title: 'Photo Storage', desc: 'Connect your public Cloudflare R2 photo URLs to your portfolio' },
     { done: false, title: 'Custom Domain', desc: 'Point your domain to the hosted app' },
     { done: false, title: 'Color Profiles', desc: 'Ensure master images have embedded ICC profiles' },
     { done: false, title: 'Mobile Optimization', desc: 'Test gallery on mobile devices for responsive design' }

@@ -32,13 +32,28 @@ test('production refuses missing security configuration', () => {
 });
 
 test('HTTP security and authenticated gallery workflows', async (t) => {
+  const nasRequests = [];
+  const nas = require('node:http').createServer((req, res) => {
+    nasRequests.push(req.headers);
+    res.setHeader('ETag', '"photo-v1"');
+    res.setHeader('Last-Modified', 'Wed, 01 Jan 2025 00:00:00 GMT');
+    if (req.headers['if-none-match'] === '"photo-v1"') {
+      res.writeHead(304).end();
+    } else {
+      res.setHeader('Content-Type', 'image/jpeg');
+      res.end('test photo bytes');
+    }
+  });
+  nas.listen(0, '127.0.0.1');
+  await new Promise((resolve) => nas.once('listening', resolve));
+  t.after(() => new Promise((resolve) => nas.close(resolve)));
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'photography-security-'));
   const secret = crypto.randomBytes(32).toString('hex');
   Object.assign(process.env, {
     NODE_ENV: 'test', SESSION_SECRET: secret, GOOGLE_CLIENT_ID: 'test-client', GOOGLE_CLIENT_SECRET: 'test-secret',
     GOOGLE_ALLOWED_EMAILS: 'admin@example.com', FRONTEND_URL: 'http://localhost:5173',
     BACKEND_URL: 'http://localhost:4000', GOOGLE_CALLBACK_URL: 'http://localhost:4000/auth/google/callback',
-    DATA_DIR: path.join(tempRoot, 'data'), UPLOADS_DIR: path.join(tempRoot, 'uploads'), NAS_BASE_URL: 'https://nas.example/photos'
+    DATA_DIR: path.join(tempRoot, 'data'), UPLOADS_DIR: path.join(tempRoot, 'uploads'), NAS_BASE_URL: `http://127.0.0.1:${nas.address().port}/photos`
   });
   const { app, sessionStore } = require('./index');
   await t.test('Google login rejects unlisted or unverified accounts', async () => {
@@ -75,6 +90,39 @@ test('HTTP security and authenticated gallery workflows', async (t) => {
   const headers = { Origin: 'http://localhost:5173', Cookie: adminCookie, 'X-CSRF-Token': adminToken };
   const project = { id: 'security-test', name: 'Test', category: 'portraits', description: '', images: [], coverImage: '' };
 
+  await t.test('public profiles revalidate and detect external file changes', async () => {
+    const first = await fetch(`${base}/api/profiles`);
+    assert.equal(first.headers.get('cache-control'), 'public, no-cache');
+    const etag = first.headers.get('etag');
+    assert.ok(etag);
+    const profiles = await first.json();
+    // node-fetch sends validators without Node's native fetch adding no-cache.
+    const conditionalFetch = require('node-fetch');
+    const unchanged = await conditionalFetch(`${base}/api/profiles`, { headers: { 'If-None-Match': etag } });
+    assert.equal(unchanged.status, 304);
+    assert.equal(await unchanged.text(), '');
+    profiles[0].name = 'Updated externally';
+    fs.writeFileSync(path.join(process.env.DATA_DIR, 'profiles.json'), JSON.stringify({ profiles }));
+    const changed = await conditionalFetch(`${base}/api/profiles`, { headers: { 'If-None-Match': etag } });
+    assert.equal(changed.status, 200);
+    assert.notEqual(changed.headers.get('etag'), etag);
+    assert.equal((await changed.json())[0].name, 'Updated externally');
+  });
+
+  await t.test('NAS photos forward validators and return bodyless 304 responses', async () => {
+    const first = await fetch(`${base}/images/example.jpg`);
+    assert.equal(first.status, 200);
+    assert.equal(first.headers.get('cache-control'), 'public, max-age=3600, must-revalidate');
+    assert.equal(await first.text(), 'test photo bytes');
+    const second = await fetch(`${base}/images/example.jpg`, { headers: {
+      'If-None-Match': first.headers.get('etag'), 'If-Modified-Since': first.headers.get('last-modified')
+    } });
+    assert.equal(second.status, 304);
+    assert.equal(await second.text(), '');
+    assert.equal(nasRequests[1]['if-none-match'], '"photo-v1"');
+    assert.equal(nasRequests[1]['if-modified-since'], first.headers.get('last-modified'));
+  });
+
   await t.test('public gallery works; anonymous users are never admins', async () => {
     assert.equal((await fetch(`${base}/api/profiles`)).status, 200);
     assert.equal((await (await fetch(`${base}/api/auth/user`)).json()).user, null);
@@ -90,6 +138,7 @@ test('HTTP security and authenticated gallery workflows', async (t) => {
   await t.test('allowed admin can create a project but cannot overwrite it', async () => {
     const options = { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify(project) };
     assert.equal((await fetch(`${base}/api/admin/profiles`, options)).status, 200);
+    assert.equal((await (await fetch(`${base}/api/profiles/security-test`)).json()).name, 'Test');
     assert.equal((await fetch(`${base}/api/admin/profiles`, options)).status, 409);
     assert.equal((await fetch(`${base}/api/admin/profiles`, { ...options, body: JSON.stringify({ ...project, id: '../escape' }) })).status, 400);
   });
@@ -119,6 +168,7 @@ test('HTTP security and authenticated gallery workflows', async (t) => {
     assert.match(url.pathname, /\.png$/);
     const image = await fetch(`${base}${url.pathname}`);
     assert.equal(image.status, 200);
+    assert.equal(image.headers.get('cache-control'), 'public, max-age=31536000, immutable');
     assert.deepEqual(Buffer.from(await image.arrayBuffer()), bytes);
     const setCover = await fetch(`${base}/api/admin/profiles/security-test/cover`, { method: 'POST', headers: { ...headers, 'Content-Type': 'application/json' }, body: JSON.stringify({ imagePath: profile.images[0].path }) });
     assert.equal(setCover.status, 200);
@@ -136,6 +186,7 @@ test('HTTP security and authenticated gallery workflows', async (t) => {
   await t.test('admin can delete its test project and logout invalidates the session', async () => {
     assert.equal((await fetch(`${base}/api/admin/profiles/security-test`, { method: 'DELETE', headers })).status, 200);
     assert.equal(fs.existsSync(path.join(process.env.UPLOADS_DIR, 'security-test')), false);
+    assert.equal((await fetch(`${base}/api/profiles/security-test`)).status, 404);
     assert.equal((await fetch(`${base}/api/auth/logout`, { method: 'POST', headers })).status, 200);
     assert.equal((await fetch(`${base}/api/admin/profiles`, { headers: { Cookie: adminCookie } })).status, 401);
   });

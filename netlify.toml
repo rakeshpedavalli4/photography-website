@@ -4,7 +4,9 @@
 
 [build.environment]
   NODE_VERSION = "24"
-  SECRETS_SCAN_OMIT_KEYS = "VITE_EMAILJS_PUBLIC_KEY,VITE_EMAILJS_SERVICE_ID,VITE_EMAILJS_TEMPLATE_ID,VITE_BACKEND_URL"
+  # The admin email also appears intentionally as the public contact address.
+  # Keep credential values (SESSION_SECRET, GOOGLE_CLIENT_SECRET, etc.) scanned.
+  SECRETS_SCAN_OMIT_KEYS = "VITE_EMAILJS_PUBLIC_KEY,VITE_EMAILJS_SERVICE_ID,VITE_EMAILJS_TEMPLATE_ID,VITE_BACKEND_URL,GOOGLE_ALLOWED_EMAILS"
 
 [[headers]]
   for = "/*"
@@ -19,3 +21,20 @@
   from = "/*"
   to = "/index.html"
   status = 200
+
+# Revalidate the app shell so deployments are visible immediately.
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# Vite changes these filenames whenever their contents change.
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"

@@ -49,7 +49,7 @@ export default function Layout({ children }) {
       <header className="header">
         <nav className="navbar">
           <Link to="/" className="logo">
-            <h1>📸 Portfolio</h1>
+            <h1>Portfolio</h1>
           </Link>
           <ul className="nav-links">
             <li><Link to="/" className={location.pathname === '/' ? 'active' : ''}>Home</Link></li>

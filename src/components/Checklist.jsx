@@ -17,7 +17,7 @@ export default function Checklist() {
   return (
     <section className="checklist">
       <div className="checklist-container">
-        <h2>📋 Setup Checklist</h2>
+        <h2>Setup Checklist</h2>
         <p className="subtitle">Things to add/configure for your photography portfolio:</p>
         <ul className="checklist-items">
           {items.map((item, idx) => (

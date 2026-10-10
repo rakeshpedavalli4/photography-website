@@ -32,7 +32,7 @@ export default function Contact() {
 
     // Check if credentials are set
     if (!SERVICE_ID || SERVICE_ID === 'YOUR_SERVICE_ID' || !TEMPLATE_ID || TEMPLATE_ID === 'YOUR_TEMPLATE_ID') {
-      setError('❌ Please set up your EmailJS credentials in .env.local file')
+      setError('Please set up your EmailJS credentials in .env.local file')
       setLoading(false)
       return
     }
@@ -76,7 +76,6 @@ export default function Contact() {
             <h3>Contact Information</h3>
             
             <div className="info-item">
-              <span className="icon">📧</span>
               <div>
                 <strong>Email</strong>
                 <p>
@@ -88,7 +87,6 @@ export default function Contact() {
             </div>
 
             <div className="info-item">
-              <span className="icon">📱</span>
               <div>
                 <strong>Phone</strong>
                 <p>
@@ -100,7 +98,6 @@ export default function Contact() {
             </div>
 
             <div className="info-item">
-              <span className="icon">📍</span>
               <div>
                 <strong>Location</strong>
                 <p>Cincinnati, Ohio</p>
@@ -108,7 +105,6 @@ export default function Contact() {
             </div>
 
             <div className="info-item">
-              <span className="icon">⏰</span>
               <div>
                 <strong>Response Time</strong>
                 <p>Usually responds within 24 hours</p>
@@ -121,12 +117,12 @@ export default function Contact() {
             <h3>Send a Message</h3>
             {submitted && (
               <div className="success-message">
-                ✅ Message sent! I'll get back to you soon.
+                Message sent! I'll get back to you soon.
               </div>
             )}
             {error && (
               <div className="error-message">
-                ❌ {error}
+                {error}
               </div>
             )}
             <form className="contact-form" onSubmit={handleSubmit}>
